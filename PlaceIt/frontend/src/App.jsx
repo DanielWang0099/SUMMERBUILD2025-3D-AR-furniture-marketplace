@@ -8,6 +8,10 @@ import Login from './pages/Login';
 import Cart from './pages/Cart';
 import ProductDetail from './pages/ProductDetail';
 import About from './pages/About';
+import Favorites from './pages/Favorites';
+import Profile from './pages/Profile';
+import VendorDashboard from './pages/VendorDashboard';
+import VendorProductForm from './pages/VendorProductForm';
 import Toast from './components/UI/Toast';
 import { useApp } from './context/AppContext';
 import './App.css';
@@ -17,16 +21,20 @@ function AppContent() {
 
   return (
     <Router>
-      <Layout>
-        <Routes>
+      <Layout>        <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/browse" element={<Browse />} />
           <Route path="/sell" element={<Sell />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Login />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/favorites" element={<Favorites />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/about" element={<About />} />
+          <Route path="/vendor-dashboard" element={<VendorDashboard />} />
+          <Route path="/vendor/product/new" element={<VendorProductForm />} />
+          <Route path="/vendor/product/edit/:productId" element={<VendorProductForm />} />
           {/* Add more routes as needed */}
           <Route path="*" element={<div className="min-h-screen bg-white flex items-center justify-center"><h1 className="text-2xl">Page Not Found</h1></div>} />
         </Routes>
