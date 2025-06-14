@@ -10,7 +10,6 @@ import ProductDetail from './pages/ProductDetail';
 import About from './pages/About';
 import Favorites from './pages/Favorites';
 import Profile from './pages/Profile';
-import VendorDashboard from './pages/VendorDashboard';
 import VendorProductForm from './pages/VendorProductForm';
 import Toast from './components/UI/Toast';
 import { useApp } from './context/AppContext';
@@ -21,7 +20,8 @@ function AppContent() {
 
   return (
     <Router>
-      <Layout>        <Routes>
+      <Layout>
+        <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/browse" element={<Browse />} />
           <Route path="/sell" element={<Sell />} />
