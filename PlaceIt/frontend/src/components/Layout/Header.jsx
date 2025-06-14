@@ -25,19 +25,14 @@ const Header = () => {
     logout();
     navigate('/');
     setIsUserMenuOpen(false);
-  };
-  const navigation = [
+  };  const navigation = [
     { name: 'Browse', href: '/browse' },
-    ...(user?.role === 'vendor' ? [{ name: 'Dashboard', href: '/vendor-dashboard' }] : []),
     { name: 'Sell', href: '/sell' },
     { name: 'About', href: '/about' },
   ];
 
   const userMenuItems = [
-    ...(user?.role === 'vendor' ? [
-      { name: 'Dashboard', href: '/vendor-dashboard', icon: ChartBarIcon },
-      { name: 'Add Product', href: '/vendor/product/new', icon: PlusIcon },
-    ] : []),
+    { name: 'Add Product', href: '/vendor/product/new', icon: PlusIcon },
     { name: 'Favorites', href: '/favorites', icon: HeartIcon },
     { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },
     { name: 'Logout', action: handleLogout, icon: ArrowRightOnRectangleIcon },
@@ -88,18 +83,12 @@ const Header = () => {
 
             {/* User Menu */}
             {isAuthenticated ? (
-              <div className="relative">
-                <button 
+              <div className="relative">                <button 
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center space-x-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/20"
                 >
                   <UserIcon className="h-5 w-5" />
                   <span>{user?.name}</span>
-                  {user?.role === 'vendor' && (
-                    <span className="bg-[#29d4c5] text-[#0c1825] text-xs px-2 py-1 rounded-full font-semibold">
-                      Vendor
-                    </span>
-                  )}
                 </button>
 
                 {/* User Dropdown Menu */}
@@ -184,9 +173,8 @@ const Header = () => {
 
                 {/* User Menu Items */}
                 {isAuthenticated ? (
-                  <>
-                    <div className="px-3 py-2 text-[#b6cacb] text-sm font-medium">
-                      {user?.name} {user?.role === 'vendor' && '(Vendor)'}
+                  <>                    <div className="px-3 py-2 text-[#b6cacb] text-sm font-medium">
+                      {user?.name}
                     </div>
                     {userMenuItems.map((item) => (
                       item.href ? (

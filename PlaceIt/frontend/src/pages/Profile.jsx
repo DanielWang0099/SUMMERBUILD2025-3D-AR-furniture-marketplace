@@ -191,16 +191,10 @@ const Profile = () => {
             animate={{ opacity: 1, x: 0 }}
             className="lg:col-span-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 shadow-lg h-fit"
           >
-            <div className="text-center">
-              <div className="relative inline-block">
+            <div className="text-center">              <div className="relative inline-block">
                 <div className="w-24 h-24 bg-gradient-to-br from-[#29d4c5] to-[#209aaa] rounded-full flex items-center justify-center mb-4">
                   <UserIcon className="h-12 w-12 text-white" />
                 </div>
-                {user?.role === 'vendor' && (
-                  <span className="absolute -bottom-2 -right-2 bg-[#29d4c5] text-[#0c1825] text-xs px-2 py-1 rounded-full font-semibold">
-                    Vendor
-                  </span>
-                )}
               </div>
               
               <h2 className="text-xl font-semibold text-white mb-2">

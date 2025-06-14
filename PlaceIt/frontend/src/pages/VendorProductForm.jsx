@@ -43,13 +43,7 @@ const VendorProductForm = () => {
   const [newMaterial, setNewMaterial] = useState('');
   const [newColor, setNewColor] = useState('');
   const [newTag, setNewTag] = useState('');
-
   useEffect(() => {
-    if (user?.role !== 'vendor') {
-      navigate('/');
-      return;
-    }
-    
     fetchCategories();
     
     if (productId) {
@@ -260,13 +254,8 @@ const VendorProductForm = () => {
       console.error('Error saving product:', error);
       showToast(error.message || 'Failed to save product', 'error');
     } finally {
-      setIsLoading(false);
-    }
+      setIsLoading(false);    }
   };
-
-  if (user?.role !== 'vendor') {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa]">
