@@ -84,30 +84,19 @@ const Profile = () => {
       ...prev,
       [name]: value
     }));
-  };
+  };  const { updateProfile: apiUpdateProfile } = useApp();
 
   const handleSaveProfile = async () => {
     setIsLoading(true);
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/user/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        showToast('Profile updated successfully!', 'success');
+      const response = await apiUpdateProfile(formData);
+      
+      if (response.success) {
+        showToast({ type: 'success', message: 'Profile updated successfully!' });
         setIsEditing(false);
-        // Update user data in context if needed
-        // updateUser(updatedUser);
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update profile');
+        throw new Error(response.message || 'Failed to update profile');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -116,36 +105,30 @@ const Profile = () => {
       setIsLoading(false);
     }
   };
-
   const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      showToast('New passwords do not match', 'error');
+      showToast({ type: 'error', message: 'New passwords do not match' });
       return;
     }
 
     if (passwordData.newPassword.length < 6) {
-      showToast('Password must be at least 6 characters', 'error');
+      showToast({ type: 'error', message: 'Password must be at least 6 characters' });
       return;
     }
 
     setIsLoading(true);
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/user/change-password`, {
+      const response = await apiService.request('/user/change-password', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword
         })
       });
 
-      if (response.ok) {
-        showToast('Password changed successfully!', 'success');
+      if (response.success) {
+        showToast({ type: 'success', message: 'Password changed successfully!' });
         setShowPasswordChange(false);
         setPasswordData({
           currentPassword: '',
@@ -153,8 +136,7 @@ const Profile = () => {
           confirmPassword: ''
         });
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to change password');
+        throw new Error(response.message || 'Failed to change password');
       }
     } catch (error) {
       console.error('Error changing password:', error);

@@ -168,7 +168,6 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     initializeApp();
   }, []);
-
   const initializeApp = async () => {
     try {
       dispatch({ type: actionTypes.SET_LOADING, payload: true });
@@ -193,7 +192,12 @@ export const AppProvider = ({ children }) => {
           }
         } catch (error) {
           console.error('Authentication check failed:', error);
+          // Clear invalid token and show message
           apiService.logout();
+          dispatch({ 
+            type: actionTypes.SHOW_TOAST, 
+            payload: { type: 'info', message: 'Your session has expired. Please log in again.' }
+          });
         }
       }
     } catch (error) {
@@ -203,15 +207,19 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: actionTypes.SET_LOADING, payload: false });
     }
   };
-
   const loadCategories = async () => {
     try {
       const response = await apiService.getCategories();
       if (response.success) {
         dispatch({ type: actionTypes.SET_CATEGORIES, payload: response.data });
+      } else {
+        // If no success flag but data exists
+        dispatch({ type: actionTypes.SET_CATEGORIES, payload: [] });
+        throw new Error('Categories load failed');
       }
     } catch (error) {
       console.error('Failed to load categories:', error);
+      // Don't show toast for this as it's not user-initiated
     }
   };
 

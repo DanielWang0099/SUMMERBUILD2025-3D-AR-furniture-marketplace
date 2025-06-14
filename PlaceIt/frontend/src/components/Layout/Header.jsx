@@ -17,15 +17,16 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const { cart, user, isAuthenticated, logout } = useApp();
+  const { cart, user, isAuthenticated, logout, showToast } = useApp();
 
   const cartItemsCount = cart?.reduce((total, item) => total + item.quantity, 0) || 0;
-
   const handleLogout = () => {
     logout();
     navigate('/');
     setIsUserMenuOpen(false);
-  };  const navigation = [
+    // Show feedback to user
+    showToast({ type: 'success', message: 'You have been logged out successfully' });
+  };const navigation = [
     { name: 'Browse', href: '/browse' },
     { name: 'Sell', href: '/sell' },
     { name: 'About', href: '/about' },

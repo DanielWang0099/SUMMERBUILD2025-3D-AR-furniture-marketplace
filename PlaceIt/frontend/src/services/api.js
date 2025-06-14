@@ -1,7 +1,7 @@
 // PlaceIt! API Service
 // Handles all communication with the backend API
 
-const API_BASE_URL = 'http://localhost:3002/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : 'http://localhost:3002/api';
 
 class ApiService {
   constructor() {
@@ -29,7 +29,6 @@ class ApiService {
     }
     return headers;
   }
-
   // Generic API request method
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
@@ -41,15 +40,28 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
+      
+      // Handle network errors
+      if (!response) {
+        throw new Error('Network error - unable to connect to the server');
+      }
+      
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'API request failed');
+        const errorMessage = data.message || `Error ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
 
       return data;
     } catch (error) {
       console.error('API request error:', error);
+      
+      // Check if server is unreachable
+      if (!navigator.onLine || error.message.includes('Failed to fetch')) {
+        throw new Error('Unable to connect to the server. Please check your internet connection.');
+      }
+      
       throw error;
     }
   }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import apiService from '../services/api';
+import NoData from '../components/UI/NoData';
 import { 
   FunnelIcon, 
   MagnifyingGlassIcon,
@@ -27,7 +28,6 @@ const Browse = () => {
   const [furniture, setFurniture] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-
   // Fetch furniture data
   useEffect(() => {
     const fetchFurniture = async () => {
@@ -44,18 +44,25 @@ const Browse = () => {
         };
         
         const response = await apiService.getFurniture(params);
-        setFurniture(response.data || []);
-        setError(null);
+        
+        if (response.success) {
+          setFurniture(response.data || []);
+          setError(null);
+        } else {
+          throw new Error(response.message || 'Failed to load furniture');
+        }
       } catch (err) {
-        setError('Failed to load furniture');
+        setError(err.message || 'Failed to load furniture');
+        showToast({ type: 'error', message: err.message || 'Failed to load furniture' });
         console.error('Error fetching furniture:', err);
+        setFurniture([]); // Set empty array on error
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchFurniture();
-  }, [searchTerm, selectedCategory, priceRange, show3DOnly, showAROnly, sortBy]);
+  }, [searchTerm, selectedCategory, priceRange, show3DOnly, showAROnly, sortBy, showToast]);
 
   const handleAddToCart = async (furnitureItem) => {
     try {
@@ -99,19 +106,22 @@ const Browse = () => {
       </div>
     );
   }
-
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa] flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-400 text-lg mb-4">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="px-6 py-3 bg-[#29d4c5] text-white rounded-lg hover:bg-[#209aaa] transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
+        <NoData 
+          message={error}
+          icon={EyeIcon}
+          className="max-w-md"
+          actionComponent={
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-6 py-3 bg-[#29d4c5] text-white rounded-lg hover:bg-[#209aaa] transition-colors"
+            >
+              Try Again
+            </button>
+          }
+        />
       </div>
     );
   }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
+import { isValidEmail, validatePassword, isValidPhone } from '../utils/validation';
 import { 
   EnvelopeIcon, 
   LockClosedIcon, 
@@ -31,43 +32,74 @@ const Login = () => {
       country: '',
       zip: ''
     }
-  });
-
-  const handleSubmit = async (e) => {
+  });  const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-
+    
     try {
-      if (isLogin) {
-        // Login
-        await login({
-          email: formData.email,
-          password: formData.password
-        });
-        showToast('Login successful!', 'success');
-        navigate('/');
-      } else {
-        // Register
-        if (formData.password !== formData.confirmPassword) {
-          showToast('Passwords do not match', 'error');
+      // Validate form data
+      if (!formData.email || !isValidEmail(formData.email)) {
+        showToast({ type: 'error', message: 'Please enter a valid email address' });
+        return;
+      }
+      
+      const passwordValidation = validatePassword(formData.password);
+      if (!passwordValidation.isValid) {
+        showToast({ type: 'error', message: passwordValidation.message });
+        return;
+      }
+      
+      if (!isLogin) {
+        // Additional register validations
+        if (!formData.name.trim()) {
+          showToast({ type: 'error', message: 'Please enter your full name' });
           return;
         }
         
-        if (formData.password.length < 6) {
-          showToast('Password must be at least 6 characters', 'error');
+        if (formData.password !== formData.confirmPassword) {
+          showToast({ type: 'error', message: 'Passwords do not match' });
           return;
-        }        await register({
+        }
+        
+        if (formData.phone && !isValidPhone(formData.phone)) {
+          showToast({ type: 'error', message: 'Please enter a valid phone number or leave it empty' });
+          return;
+        }
+      }
+      
+      setIsLoading(true);
+      
+      if (isLogin) {
+        // Login
+        const response = await login({
+          email: formData.email,
+          password: formData.password
+        });
+        
+        if (response?.success) {
+          showToast({ type: 'success', message: 'Login successful!' });
+          navigate('/');
+        } else {
+          throw new Error(response?.message || 'Login failed');
+        }
+      } else {
+        // Register
+        const response = await register({
           email: formData.email,
           password: formData.password,
           name: formData.name,
           phone: formData.phone,
           address: formData.address
         });
-        showToast('Registration successful!', 'success');
-        navigate('/');
+        
+        if (response?.success) {
+          showToast({ type: 'success', message: 'Registration successful!' });
+          navigate('/');
+        } else {
+          throw new Error(response?.message || 'Registration failed');
+        }
       }
     } catch (error) {
-      showToast(error.message || 'An error occurred', 'error');
+      showToast({ type: 'error', message: error.message || 'An error occurred' });
     } finally {
       setIsLoading(false);
     }
