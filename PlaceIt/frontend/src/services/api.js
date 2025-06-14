@@ -209,7 +209,7 @@ class ApiService {
   }
 
   // ===========================================
-  // VENDOR METHODS
+  // SELLER METHODS
   // ===========================================
 
   async getVendorDashboard() {

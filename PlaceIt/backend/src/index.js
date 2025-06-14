@@ -66,19 +66,6 @@ const requireAuth = async (req, res, next) => {
   next();
 };
 
-// Vendor-only middleware
-const requireVendor = async (req, res, next) => {
-  const { data: userProfile, error } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', req.user.id)
-    .single();
-    
-  if (error || !userProfile || userProfile.role !== 'vendor') {
-    return res.status(403).json({ success: false, message: 'Vendor access required' });
-  }
-  next();
-};
 
 // Basic route
 app.get('/', (req, res) => {
@@ -104,10 +91,9 @@ app.get('/', (req, res) => {
       ],
       furniture: [
         'GET /api/furniture - Get all furniture',
-        'GET /api/furniture/:id - Get furniture by ID',
-        'POST /api/furniture - Create new furniture (vendor only)',
-        'PUT /api/furniture/:id - Update furniture (vendor only)',
-        'DELETE /api/furniture/:id - Delete furniture (vendor only)'
+        'GET /api/furniture/:id - Get furniture by ID',        'POST /api/furniture - Create new furniture (authenticated users)',
+        'PUT /api/furniture/:id - Update furniture (owner only)',
+        'DELETE /api/furniture/:id - Delete furniture (owner only)'
       ],
       categories: [
         'GET /api/categories - Get all categories'
@@ -128,11 +114,11 @@ app.get('/', (req, res) => {
         'POST /api/reviews - Create review',
         'PUT /api/reviews/:id - Update review',
         'DELETE /api/reviews/:id - Delete review'
-      ],
-      vendor: [
-        'GET /api/vendor/dashboard - Get vendor dashboard data',
-        'GET /api/vendor/furniture - Get vendor furniture',
-        'GET /api/vendor/analytics - Get vendor analytics',
+      ],      
+      seller: [
+        'GET /api/vendor/dashboard - Get user dashboard data',
+        'GET /api/vendor/furniture - Get user furniture',
+        'GET /api/vendor/analytics - Get user analytics',
         'POST /api/vendor/furniture/:id/generate-3d - Generate 3D model'
       ],
       uploads: [
@@ -149,7 +135,7 @@ app.get('/', (req, res) => {
 // Register user
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, name, role = 'client', phone, address } = req.body;
+    const { email, password, name, phone, address } = req.body;
     
     // Create auth user
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -169,7 +155,6 @@ app.post('/api/auth/register', async (req, res) => {
           id: authData.user.id,
           email,
           name,
-          role,
           phone,
           address
         }])
@@ -568,8 +553,8 @@ app.get('/api/furniture/:id', async (req, res) => {
   }
 });
 
-// Create new furniture (vendor only)
-app.post('/api/furniture', requireAuth, requireVendor, async (req, res) => {
+// Create new furniture (all authenticated users can sell)
+app.post('/api/furniture', requireAuth, async (req, res) => {
   try {
     const {
       title,
@@ -640,8 +625,8 @@ app.post('/api/furniture', requireAuth, requireVendor, async (req, res) => {
   }
 });
 
-// Update furniture (vendor only)
-app.put('/api/furniture/:id', requireAuth, requireVendor, async (req, res) => {
+// Update furniture (owner only)
+app.put('/api/furniture/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -686,8 +671,8 @@ app.put('/api/furniture/:id', requireAuth, requireVendor, async (req, res) => {
   }
 });
 
-// Delete furniture (vendor only)
-app.delete('/api/furniture/:id', requireAuth, requireVendor, async (req, res) => {
+// Delete furniture (owner only)
+app.delete('/api/furniture/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -1056,8 +1041,8 @@ app.post('/api/reviews', requireAuth, async (req, res) => {
 // VENDOR ROUTES
 // ===========================================
 
-// Get vendor dashboard data
-app.get('/api/vendor/dashboard', requireAuth, requireVendor, async (req, res) => {
+// Get user dashboard data (all users can access)
+app.get('/api/vendor/dashboard', requireAuth, async (req, res) => {
   try {
     // Get vendor's furniture count and stats
     const { data: furnitureStats, error: statsError } = await supabase
@@ -1105,8 +1090,8 @@ app.get('/api/vendor/dashboard', requireAuth, requireVendor, async (req, res) =>
   }
 });
 
-// Get vendor's furniture
-app.get('/api/vendor/furniture', requireAuth, requireVendor, async (req, res) => {
+// Get user's furniture (all users can access their own products)
+app.get('/api/vendor/furniture', requireAuth, async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
     
@@ -1151,7 +1136,7 @@ app.get('/api/vendor/furniture', requireAuth, requireVendor, async (req, res) =>
 });
 
 // Generate 3D model from video
-app.post('/api/vendor/furniture/:id/generate-3d', requireAuth, requireVendor, async (req, res) => {
+app.post('/api/vendor/furniture/:id/generate-3d', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { video_url } = req.body;

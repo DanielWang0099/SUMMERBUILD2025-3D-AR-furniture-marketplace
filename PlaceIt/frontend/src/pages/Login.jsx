@@ -18,14 +18,12 @@ const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [isLoading, setIsLoading] = useState(false);  const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
     name: '',
     phone: '',
-    role: 'client',
     address: {
       street: '',
       city: '',
@@ -58,14 +56,11 @@ const Login = () => {
         if (formData.password.length < 6) {
           showToast('Password must be at least 6 characters', 'error');
           return;
-        }
-
-        await register({
+        }        await register({
           email: formData.email,
           password: formData.password,
           name: formData.name,
           phone: formData.phone,
-          role: formData.role,
           address: formData.address
         });
         showToast('Registration successful!', 'success');
@@ -261,48 +256,6 @@ const Login = () => {
                       />
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-white mb-2">
-                      Account Type
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="relative">
-                        <input
-                          type="radio"
-                          name="role"
-                          value="client"
-                          checked={formData.role === 'client'}
-                          onChange={handleInputChange}
-                          className="sr-only"
-                        />
-                        <div className={`flex items-center justify-center px-4 py-3 rounded-lg border-2 cursor-pointer transition-all ${
-                          formData.role === 'client'
-                            ? 'border-[#29d4c5] bg-[#29d4c5]/20 text-white'
-                            : 'border-white/30 bg-white/10 text-[#b6cacb] hover:bg-white/20'
-                        }`}>
-                          <span className="text-sm font-medium">Buyer</span>
-                        </div>
-                      </label>
-                      <label className="relative">
-                        <input
-                          type="radio"
-                          name="role"
-                          value="vendor"
-                          checked={formData.role === 'vendor'}
-                          onChange={handleInputChange}
-                          className="sr-only"
-                        />
-                        <div className={`flex items-center justify-center px-4 py-3 rounded-lg border-2 cursor-pointer transition-all ${
-                          formData.role === 'vendor'
-                            ? 'border-[#29d4c5] bg-[#29d4c5]/20 text-white'
-                            : 'border-white/30 bg-white/10 text-[#b6cacb] hover:bg-white/20'
-                        }`}>
-                          <span className="text-sm font-medium">Seller</span>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
                 </>
               )}
             </div>
@@ -328,14 +281,13 @@ const Login = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setIsLogin(!isLogin);
+                  setIsLogin(!isLogin);                  
                   setFormData({
                     email: '',
                     password: '',
                     confirmPassword: '',
                     name: '',
                     phone: '',
-                    role: 'client',
                     address: {
                       street: '',
                       city: '',

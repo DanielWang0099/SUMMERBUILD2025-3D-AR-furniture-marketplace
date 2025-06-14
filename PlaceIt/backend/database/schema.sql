@@ -5,7 +5,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Custom types
-CREATE TYPE user_role AS ENUM ('vendor', 'client', 'admin');
+-- Removed user_role enum as all users can now both buy and sell
 CREATE TYPE furniture_status AS ENUM ('draft', 'active', 'archived', 'out_of_stock');
 CREATE TYPE media_type AS ENUM ('image', 'video', 'model_3d', 'thumbnail');
 CREATE TYPE job_status AS ENUM ('pending', 'processing', 'completed', 'failed');
@@ -14,9 +14,8 @@ CREATE TYPE interaction_type AS ENUM ('view', 'rotate', 'scale', 'move', 'place_
 
 -- 1. Users Table (extends Supabase auth.users)
 CREATE TABLE users (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
-    role user_role NOT NULL DEFAULT 'client',
     name TEXT NOT NULL,
     phone TEXT,
     address JSONB, -- {street, city, state, country, zip}
@@ -289,16 +288,6 @@ CREATE TRIGGER update_cart_items_updated_at BEFORE UPDATE ON cart_items
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Insert default categories
-INSERT INTO categories (name, slug, description) VALUES
-('Sofas & Chairs', 'sofas-chairs', 'Comfortable seating furniture for living rooms and bedrooms'),
-('Tables', 'tables', 'Dining tables, coffee tables, and work desks'),
-('Beds & Mattresses', 'beds-mattresses', 'Bedroom furniture for comfortable sleep'),
-('Storage & Organization', 'storage', 'Wardrobes, shelves, and storage solutions'),
-('Lighting', 'lighting', 'Lamps, chandeliers, and lighting fixtures'),
-('Decor & Accessories', 'decor', 'Decorative items and home accessories'),
-('Outdoor Furniture', 'outdoor', 'Patio and garden furniture'),
-('Office Furniture', 'office', 'Desks, chairs, and office storage solutions');
 
 -- Row Level Security (RLS) Policies
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;

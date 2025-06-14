@@ -98,10 +98,9 @@ const VendorDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa]">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
+      <div className="container mx-auto px-4 py-8">        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Vendor Dashboard</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">My Dashboard</h1>
           <p className="text-[#b6cacb]">Welcome back, {user?.name}!</p>
         </div>
 
