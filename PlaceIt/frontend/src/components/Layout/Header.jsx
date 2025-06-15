@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { 
-  Bars3Icon, 
-  XMarkIcon, 
-  ShoppingCartIcon, 
+import {
+  Bars3Icon,
+  XMarkIcon,
+  ShoppingCartIcon,
   UserIcon,
   HeartIcon,
-  ChartBarIcon,
   PlusIcon,
   ArrowRightOnRectangleIcon,
   Cog6ToothIcon
@@ -15,18 +14,18 @@ import {
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const navigate = useNavigate();
   const { cart, user, isAuthenticated, logout, showToast } = useApp();
 
   const cartItemsCount = cart?.reduce((total, item) => total + item.quantity, 0) || 0;
+
   const handleLogout = () => {
     logout();
     navigate('/');
-    setIsUserMenuOpen(false);
-    // Show feedback to user
-    showToast({ type: 'success', message: 'You have been logged out successfully' });
-  };const navigation = [
+    showToast({ type: 'success', message: 'Logged out successfully' });
+  };
+
+  const navigation = [
     { name: 'Browse', href: '/browse' },
     { name: 'Sell', href: '/sell' },
     { name: 'About', href: '/about' },
@@ -41,38 +40,34 @@ const Header = () => {
 
   return (
     <header className="relative bg-gradient-to-r from-[#0c1825] via-[#2a5d93] to-[#209aaa] shadow-lg">
-      <div className="absolute inset-0 bg-black/10 backdrop-blur-sm"></div>
+      <div className="absolute inset-0 bg-black/10 backdrop-blur-sm" />
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex-shrink-0">
-            <Link to="/" className="flex items-center space-x-2">
-              <img 
-                src="/src/assets/placeit-logo-no-bg.png" 
-                alt="PlaceIt!" 
-                className="h-10 w-auto"
-              />
-              <span className="text-2xl font-bold text-white">PlaceIt!</span>
-            </Link>
-          </div>
+          <Link to="/" className="flex items-center space-x-2">
+            <img src="/src/assets/placeit-logo-no-bg.png" alt="PlaceIt!" className="h-10 w-auto" />
+            <span className="text-2xl font-bold text-white">PlaceIt!</span>
+          </Link>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Nav */}
           <nav className="hidden md:flex space-x-8">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
-                className="text-white hover:text-[#29d4c5] px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 hover:bg-white/10"
+                className="text-white px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 hover:bg-gradient-to-r hover:from-[#2a5d93] hover:via-[#209aaa] hover:to-[#29d4c5] hover:text-white"
               >
                 {item.name}
               </Link>
             ))}
-          </nav>          {/* Desktop Right Side */}
+          </nav>
+
+          {/* Actions */}
           <div className="hidden md:flex items-center space-x-4">
-            {/* Cart Button */}
-            <button 
+            {/* Cart */}
+            <button
               onClick={() => navigate('/cart')}
-              className="relative p-2 text-white hover:text-[#29d4c5] transition-colors duration-200"
+              className="relative p-2 text-white transition-all duration-200 hover:text-[#29d4c5]"
             >
               <ShoppingCartIcon className="h-6 w-6" />
               {cartItemsCount > 0 && (
@@ -82,48 +77,41 @@ const Header = () => {
               )}
             </button>
 
-            {/* User Menu */}
+            {/* User */}
             {isAuthenticated ? (
-              <div className="relative">                <button 
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/20"
-                >
+              <div className="relative group">
+                <button className="flex items-center space-x-2 bg-white/20 backdrop-blur-md border border-white/20 text-white px-4 py-2 rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[#2a5d93] hover:via-[#209aaa] hover:to-[#29d4c5]">
                   <UserIcon className="h-5 w-5" />
                   <span>{user?.name}</span>
                 </button>
-
-                {/* User Dropdown Menu */}
-                {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-white/20 py-2 z-50">
-                    {userMenuItems.map((item) => (
-                      item.href ? (
-                        <Link
-                          key={item.name}
-                          to={item.href}
-                          onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center space-x-2 px-4 py-2 text-[#0c1825] hover:bg-[#29d4c5]/20 transition-colors"
-                        >
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.name}</span>
-                        </Link>
-                      ) : (
-                        <button
-                          key={item.name}
-                          onClick={item.action}
-                          className="flex items-center space-x-2 px-4 py-2 text-[#0c1825] hover:bg-red-100 transition-colors w-full text-left"
-                        >
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.name}</span>
-                        </button>
-                      )
-                    ))}
-                  </div>
-                )}
+                <div className="absolute right-0 mt-2 w-48 bg-white/80 backdrop-blur-md rounded-lg shadow-lg border border-white/20 py-2 opacity-0 invisible group-hover:visible group-hover:opacity-100 transform scale-95 group-hover:scale-100 transition-all duration-200 z-50">
+                  {userMenuItems.map((item) =>
+                    item.href ? (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        className="flex items-center space-x-2 px-4 py-2 text-[#0c1825] transition-all duration-200 hover:bg-gradient-to-r hover:from-[#2a5d93] hover:via-[#209aaa] hover:to-[#29d4c5] hover:text-white"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.name}</span>
+                      </Link>
+                    ) : (
+                      <button
+                        key={item.name}
+                        onClick={item.action}
+                        className="flex items-center space-x-2 w-full text-left px-4 py-2 text-[#0c1825] transition-all duration-200 hover:bg-red-200 hover:text-white"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.name}</span>
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
             ) : (
               <Link
                 to="/login"
-                className="flex items-center space-x-1 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/20"
+                className="flex items-center space-x-2 bg-white/20 backdrop-blur-md border border-white/20 text-white px-4 py-2 rounded-lg transition-all duration-200 hover:bg-gradient-to-r hover:from-[#2a5d93] hover:via-[#209aaa] hover:to-[#29d4c5]"
               >
                 <UserIcon className="h-5 w-5" />
                 <span>Login</span>
@@ -131,59 +119,52 @@ const Header = () => {
             )}
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile toggle */}
           <div className="md:hidden">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-white hover:text-[#29d4c5] p-2"
+              className="text-white p-2 transition-all duration-200 hover:text-[#29d4c5]"
             >
-              {isMenuOpen ? (
-                <XMarkIcon className="h-6 w-6" />
-              ) : (
-                <Bars3Icon className="h-6 w-6" />
-              )}
+              {isMenuOpen ? <XMarkIcon className="h-6 w-6" /> : <Bars3Icon className="h-6 w-6" />}
             </button>
           </div>
-        </div>        {/* Mobile Navigation */}
+        </div>
+
+        {/* Mobile menu */}
         {isMenuOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 bg-white/10 backdrop-blur-sm rounded-lg mt-2 border border-white/20">
+          <div className="md:hidden mt-2 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+            <div className="px-2 pt-2 pb-3 space-y-1">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
                   to={item.href}
-                  className="text-white hover:text-[#29d4c5] block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200"
                   onClick={() => setIsMenuOpen(false)}
+                  className="block text-white px-3 py-2 rounded-md text-base font-medium transition-all duration-200 hover:bg-gradient-to-r hover:from-[#2a5d93] hover:via-[#209aaa] hover:to-[#29d4c5]"
                 >
                   {item.name}
                 </Link>
               ))}
-              
               <div className="border-t border-white/20 pt-3 mt-3">
-                {/* Cart */}
-                <button 
+                <button
                   onClick={() => {
                     navigate('/cart');
                     setIsMenuOpen(false);
                   }}
-                  className="flex items-center space-x-2 text-white hover:text-[#29d4c5] px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 w-full"
+                  className="flex items-center space-x-2 w-full text-white px-3 py-2 rounded-md text-base font-medium transition-all duration-200 hover:bg-gradient-to-r hover:from-[#2a5d93] hover:via-[#209aaa] hover:to-[#29d4c5]"
                 >
                   <ShoppingCartIcon className="h-5 w-5" />
                   <span>Cart ({cartItemsCount})</span>
                 </button>
-
-                {/* User Menu Items */}
                 {isAuthenticated ? (
-                  <>                    <div className="px-3 py-2 text-[#b6cacb] text-sm font-medium">
-                      {user?.name}
-                    </div>
-                    {userMenuItems.map((item) => (
+                  <>
+                    <div className="px-3 py-2 text-[#b6cacb] text-sm font-medium">{user?.name}</div>
+                    {userMenuItems.map((item) =>
                       item.href ? (
                         <Link
                           key={item.name}
                           to={item.href}
                           onClick={() => setIsMenuOpen(false)}
-                          className="flex items-center space-x-2 text-white hover:text-[#29d4c5] px-3 py-2 rounded-md text-base font-medium transition-colors duration-200"
+                          className="flex items-center space-x-2 text-white px-3 py-2 rounded-md text-base font-medium transition-all duration-200 hover:bg-gradient-to-r hover:from-[#2a5d93] hover:via-[#209aaa] hover:to-[#29d4c5]"
                         >
                           <item.icon className="h-5 w-5" />
                           <span>{item.name}</span>
@@ -195,19 +176,19 @@ const Header = () => {
                             item.action();
                             setIsMenuOpen(false);
                           }}
-                          className="flex items-center space-x-2 text-white hover:text-red-400 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 w-full text-left"
+                          className="flex items-center space-x-2 w-full text-left text-white px-3 py-2 rounded-md text-base font-medium transition-all duration-200 hover:bg-red-400"
                         >
                           <item.icon className="h-5 w-5" />
                           <span>{item.name}</span>
                         </button>
                       )
-                    ))}
+                    )}
                   </>
                 ) : (
                   <Link
                     to="/login"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center space-x-2 text-white hover:text-[#29d4c5] px-3 py-2 rounded-md text-base font-medium transition-colors duration-200"
+                    className="flex items-center space-x-2 text-white px-3 py-2 rounded-md text-base font-medium transition-all duration-200 hover:bg-gradient-to-r hover:from-[#2a5d93] hover:via-[#209aaa] hover:to-[#29d4c5]"
                   >
                     <UserIcon className="h-5 w-5" />
                     <span>Login</span>
@@ -221,6 +202,5 @@ const Header = () => {
     </header>
   );
 };
-
 
 export default Header;

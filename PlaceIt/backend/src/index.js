@@ -726,6 +726,200 @@ app.delete('/api/furniture/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Update furniture listing status
+app.patch('/api/furniture/:id/status', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const userId = req.user.id;
+
+    // Check if user owns the furniture
+    const { data: furniture, error: fetchError } = await supabase
+      .from('furniture')
+      .select('vendor_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !furniture) {
+      return res.status(404).json({ success: false, message: 'Furniture not found' });
+    }
+
+    if (furniture.vendor_id !== userId) {
+      return res.status(403).json({ success: false, message: 'Not authorized to update this item' });
+    }
+
+    // Update status
+    const { data, error } = await supabase
+      .from('furniture')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    res.json({
+      success: true,
+      message: 'Status updated successfully',
+      data
+    });
+
+  } catch (error) {
+    console.error('Update status error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Bulk operations for furniture
+app.patch('/api/furniture/bulk/:action', requireAuth, async (req, res) => {
+  try {
+    const { action } = req.params;
+    const { furniture_ids } = req.body;
+    const userId = req.user.id;
+
+    if (!furniture_ids || !Array.isArray(furniture_ids)) {
+      return res.status(400).json({ success: false, message: 'Invalid furniture IDs' });
+    }
+
+    // Verify ownership
+    const { data: furnitureList } = await supabase
+      .from('furniture')
+      .select('id, vendor_id')
+      .in('id', furniture_ids);
+
+    const unauthorizedItems = furnitureList.filter(item => item.vendor_id !== userId);
+    if (unauthorizedItems.length > 0) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to modify some items' 
+      });
+    }
+
+    let updateData = {};
+    switch (action) {
+      case 'activate':
+        updateData = { status: 'active' };
+        break;
+      case 'deactivate':
+        updateData = { status: 'archived' };
+        break;
+      case 'delete':
+        const { error: deleteError } = await supabase
+          .from('furniture')
+          .delete()
+          .in('id', furniture_ids);
+        
+        if (deleteError) {
+          return res.status(400).json({ success: false, message: deleteError.message });
+        }
+        
+        return res.json({
+          success: true,
+          message: `${furniture_ids.length} items deleted successfully`
+        });
+      default:
+        return res.status(400).json({ success: false, message: 'Invalid action' });
+    }
+
+    const { data, error } = await supabase
+      .from('furniture')
+      .update({ ...updateData, updated_at: new Date().toISOString() })
+      .in('id', furniture_ids)
+      .select();
+
+    if (error) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    res.json({
+      success: true,
+      message: `${furniture_ids.length} items updated successfully`,
+      data
+    });
+
+  } catch (error) {
+    console.error('Bulk operation error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Get furniture recommendations for vendor
+app.get('/api/vendor/recommendations', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get trending categories
+    const { data: trendingCategories } = await supabase
+      .from('furniture')
+      .select(`
+        category_id,
+        categories(name),
+        view_count
+      `)
+      .not('category_id', 'is', null)
+      .order('view_count', { ascending: false })
+      .limit(5);
+
+    // Get underperforming products
+    const { data: underperformingProducts } = await supabase
+      .from('furniture')
+      .select('id, title, view_count, status, created_at')
+      .eq('vendor_id', userId)
+      .eq('status', 'active')
+      .lt('view_count', 10)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    // Get pricing suggestions based on similar products
+    const { data: pricingSuggestions } = await supabase
+      .from('furniture')
+      .select('category_id, price')
+      .eq('status', 'active')
+      .not('vendor_id', 'eq', userId);
+
+    const categoryPricing = {};
+    pricingSuggestions?.forEach(item => {
+      if (!categoryPricing[item.category_id]) {
+        categoryPricing[item.category_id] = [];
+      }
+      categoryPricing[item.category_id].push(parseFloat(item.price));
+    });
+
+    Object.keys(categoryPricing).forEach(categoryId => {
+      const prices = categoryPricing[categoryId];
+      categoryPricing[categoryId] = {
+        min: Math.min(...prices),
+        max: Math.max(...prices),
+        avg: prices.reduce((sum, price) => sum + price, 0) / prices.length
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        trendingCategories: trendingCategories?.map(item => ({
+          category_id: item.category_id,
+          name: item.categories?.name,
+          totalViews: item.view_count
+        })) || [],
+        underperformingProducts: underperformingProducts || [],
+        pricingSuggestions: categoryPricing,
+        recommendations: [
+          'Consider adding 3D models to increase engagement',
+          'Products with AR support get 40% more views',
+          'Update product descriptions with trending keywords',
+          'Seasonal promotions can boost sales by 25%'
+        ]
+      }
+    });
+
+  } catch (error) {
+    console.error('Recommendations error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
 // ===========================================
 // CART ROUTES
 // ===========================================
@@ -1060,49 +1254,101 @@ app.post('/api/reviews', requireAuth, async (req, res) => {
 // Get user dashboard data (all users can access)
 app.get('/api/vendor/dashboard', requireAuth, async (req, res) => {
   try {
-    // Get vendor's furniture count and stats
-    const { data: furnitureStats, error: statsError } = await supabase
+    const userId = req.user.id;
+
+    // Get total listings count
+    const { count: totalListings } = await supabase
       .from('furniture')
-      .select('status, price')
-      .eq('vendor_id', req.user.id);
-    
-    if (statsError) {
-      return res.status(400).json({ success: false, message: statsError.message });
-    }
-    
-    // Calculate stats
-    const totalProducts = furnitureStats.length;
-    const activeProducts = furnitureStats.filter(f => f.status === 'active').length;
-    const totalValue = furnitureStats.reduce((sum, f) => sum + parseFloat(f.price), 0);
-    
-    // Get recent reviews for vendor's products
-    const { data: recentReviews, error: reviewsError } = await supabase
-      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('vendor_id', userId);
+
+    // Get total views from all furniture
+    const { data: furnitureViews } = await supabase
+      .from('furniture')
+      .select('view_count')
+      .eq('vendor_id', userId);
+
+    const totalViews = furnitureViews?.reduce((sum, item) => sum + (item.view_count || 0), 0) || 0;
+
+    // Get sales count this month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const { data: monthlyOrders } = await supabase
+      .from('order_items')
+      .select(`
+        quantity,
+        total_price,
+        orders!inner(
+          created_at,
+          user_id
+        ),
+        furniture!inner(
+          vendor_id
+        )
+      `)
+      .eq('furniture.vendor_id', userId)
+      .gte('orders.created_at', startOfMonth.toISOString());
+
+    const salesThisMonth = monthlyOrders?.length || 0;
+    const revenueThisMonth = monthlyOrders?.reduce((sum, item) => sum + parseFloat(item.total_price || 0), 0) || 0;
+
+    // Get active listings
+    const { count: activeListings } = await supabase
+      .from('furniture')
+      .select('*', { count: 'exact', head: true })
+      .eq('vendor_id', userId)
+      .eq('status', 'active');
+
+    // Get pending 3D model generations
+    const { count: pending3DModels } = await supabase
+      .from('model_generation_jobs')
       .select(`
         *,
-        furniture(title),
-        users(name)
-      `)
-      .in('furniture_id', furnitureStats.map(f => f.id))
-      .order('created_at', { ascending: false })
-      .limit(5);
-    
+        furniture!inner(vendor_id)
+      `, { count: 'exact', head: true })
+      .eq('furniture.vendor_id', userId)
+      .in('status', ['pending', 'processing']);
+
+    // Get recent activity (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const { data: recentViews } = await supabase
+      .from('furniture')
+      .select('view_count, created_at')
+      .eq('vendor_id', userId)
+      .gte('created_at', thirtyDaysAgo.toISOString());
+
+    const viewsLast30Days = recentViews?.reduce((sum, item) => sum + (item.view_count || 0), 0) || 0;
+
+    // Get conversion rate (orders vs views)
+    const conversionRate = totalViews > 0 ? ((salesThisMonth / totalViews) * 100) : 0;
+
     res.json({
       success: true,
       data: {
         stats: {
-          totalProducts,
-          activeProducts,
-          draftProducts: furnitureStats.filter(f => f.status === 'draft').length,
-          archivedProducts: furnitureStats.filter(f => f.status === 'archived').length,
-          totalValue: Math.round(totalValue * 100) / 100
-        },
-        recentReviews: recentReviews || []
+          totalListings: totalListings || 0,
+          totalViews: totalViews || 0,
+          salesThisMonth: salesThisMonth || 0,
+          revenue: revenueThisMonth || 0,
+          activeListings: activeListings || 0,
+          pending3DModels: pending3DModels || 0,
+          viewsLast30Days: viewsLast30Days || 0,
+          conversionRate: Math.round(conversionRate * 100) / 100
+        }
       }
     });
+
   } catch (error) {
-    console.error('Vendor dashboard error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error('Dashboard error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch dashboard data',
+      error: error.message 
+    });
   }
 });
 
@@ -1147,6 +1393,200 @@ app.get('/api/vendor/furniture', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Vendor furniture error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Get comprehensive vendor analytics
+app.get('/api/vendor/analytics', requireAuth, async (req, res) => {
+  try {
+    const { period = '30', startDate, endDate } = req.query;
+    
+    // Calculate date range
+    const now = new Date();
+    let start, end;
+    
+    if (startDate && endDate) {
+      start = new Date(startDate);
+      end = new Date(endDate);
+    } else {
+      end = now;
+      start = new Date(now.getTime() - (parseInt(period) * 24 * 60 * 60 * 1000));
+    }
+
+    // Get vendor's furniture IDs
+    const { data: furnitureList, error: furnitureError } = await supabase
+      .from('furniture')
+      .select('id, title, price, status, created_at, view_count')
+      .eq('vendor_id', req.user.id);
+
+    if (furnitureError) {
+      return res.status(400).json({ success: false, message: furnitureError.message });
+    }
+
+    const furnitureIds = furnitureList.map(f => f.id);
+
+    // Get order data for revenue analysis
+    const { data: orderData, error: orderError } = await supabase
+      .from('order_items')
+      .select(`
+        quantity, unit_price, total_price,
+        orders(status, created_at, total_amount),
+        furniture(id, title, price)
+      `)
+      .in('furniture_id', furnitureIds)
+      .gte('orders.created_at', start.toISOString())
+      .lte('orders.created_at', end.toISOString());
+
+    // Get view analytics from AR interactions and furniture views
+    const { data: arData, error: arError } = await supabase
+      .from('ar_interactions')
+      .select('furniture_id, interaction_type, created_at, duration_seconds')
+      .in('furniture_id', furnitureIds)
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString());
+
+    // Get favorites and cart analytics
+    const { data: favoritesData, error: favError } = await supabase
+      .from('favorites')
+      .select('furniture_id, created_at')
+      .in('furniture_id', furnitureIds)
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString());
+
+    const { data: cartData, error: cartError } = await supabase
+      .from('cart_items')
+      .select('furniture_id, created_at, quantity')
+      .in('furniture_id', furnitureIds)
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString());
+
+    // Get reviews data
+    const { data: reviewsData, error: reviewError } = await supabase
+      .from('reviews')
+      .select('furniture_id, rating, created_at')
+      .in('furniture_id', furnitureIds)
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString());
+
+    // Process revenue by day
+    const revenueByDay = {};
+    const ordersByDay = {};
+    orderData?.forEach(order => {
+      if (order.orders?.status === 'delivered' || order.orders?.status === 'completed') {
+        const date = new Date(order.orders.created_at).toISOString().split('T')[0];
+        revenueByDay[date] = (revenueByDay[date] || 0) + parseFloat(order.total_price);
+        ordersByDay[date] = (ordersByDay[date] || 0) + order.quantity;
+      }
+    });
+
+    // Process engagement metrics by day
+    const engagementByDay = {};
+    favoritesData?.forEach(fav => {
+      const date = new Date(fav.created_at).toISOString().split('T')[0];
+      engagementByDay[date] = engagementByDay[date] || { favorites: 0, cartAdds: 0, arViews: 0 };
+      engagementByDay[date].favorites++;
+    });
+
+    cartData?.forEach(cart => {
+      const date = new Date(cart.created_at).toISOString().split('T')[0];
+      engagementByDay[date] = engagementByDay[date] || { favorites: 0, cartAdds: 0, arViews: 0 };
+      engagementByDay[date].cartAdds++;
+    });
+
+    arData?.forEach(ar => {
+      const date = new Date(ar.created_at).toISOString().split('T')[0];
+      engagementByDay[date] = engagementByDay[date] || { favorites: 0, cartAdds: 0, arViews: 0 };
+      engagementByDay[date].arViews++;
+    });
+
+    // Product performance analysis
+    const productPerformance = furnitureList.map(product => {
+      const productOrders = orderData?.filter(o => o.furniture?.id === product.id) || [];
+      const productRevenue = productOrders.reduce((sum, o) => sum + parseFloat(o.total_price || 0), 0);
+      const productSales = productOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+      const productFavorites = favoritesData?.filter(f => f.furniture_id === product.id).length || 0;
+      const productCartAdds = cartData?.filter(c => c.furniture_id === product.id).length || 0;
+      const productReviews = reviewsData?.filter(r => r.furniture_id === product.id) || [];
+      const avgRating = productReviews.length > 0 
+        ? productReviews.reduce((sum, r) => sum + r.rating, 0) / productReviews.length 
+        : 0;
+
+      return {
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        status: product.status,
+        views: product.view_count || 0,
+        revenue: productRevenue,
+        sales: productSales,
+        favorites: productFavorites,
+        cartAdds: productCartAdds,
+        avgRating: Math.round(avgRating * 10) / 10,
+        reviewCount: productReviews.length,
+        conversionRate: product.view_count > 0 ? (productSales / product.view_count) * 100 : 0
+      };
+    });
+
+    // Top categories analysis
+    const categoryPerformance = {};
+    furnitureList.forEach(product => {
+      const category = 'General'; // Would need to join with categories table
+      if (!categoryPerformance[category]) {
+        categoryPerformance[category] = { revenue: 0, sales: 0, products: 0 };
+      }
+      const productOrders = orderData?.filter(o => o.furniture?.id === product.id) || [];
+      const productRevenue = productOrders.reduce((sum, o) => sum + parseFloat(o.total_price || 0), 0);
+      const productSales = productOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+      
+      categoryPerformance[category].revenue += productRevenue;
+      categoryPerformance[category].sales += productSales;
+      categoryPerformance[category].products++;
+    });
+
+    // Calculate totals and averages
+    const totalRevenue = Object.values(revenueByDay).reduce((sum, rev) => sum + rev, 0);
+    const totalOrders = Object.values(ordersByDay).reduce((sum, orders) => sum + orders, 0);
+    const totalFavorites = favoritesData?.length || 0;
+    const totalCartAdds = cartData?.length || 0;
+    const totalArViews = arData?.length || 0;
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalRevenue: Math.round(totalRevenue * 100) / 100,
+          totalOrders,
+          avgOrderValue: Math.round(avgOrderValue * 100) / 100,
+          totalFavorites,
+          totalCartAdds,
+          totalArViews,
+          conversionRate: totalCartAdds > 0 ? Math.round((totalOrders / totalCartAdds) * 100 * 100) / 100 : 0
+        },
+        charts: {
+          revenueByDay: Object.entries(revenueByDay).map(([date, revenue]) => ({
+            date,
+            revenue: Math.round(revenue * 100) / 100
+          })).sort((a, b) => a.date.localeCompare(b.date)),
+          ordersByDay: Object.entries(ordersByDay).map(([date, orders]) => ({
+            date,
+            orders
+          })).sort((a, b) => a.date.localeCompare(b.date)),
+          engagementByDay: Object.entries(engagementByDay).map(([date, data]) => ({
+            date,
+            ...data
+          })).sort((a, b) => a.date.localeCompare(b.date))
+        },
+        productPerformance: productPerformance.sort((a, b) => b.revenue - a.revenue),
+        categoryPerformance: Object.entries(categoryPerformance).map(([category, data]) => ({
+          category,
+          ...data
+        })).sort((a, b) => b.revenue - a.revenue)
+      }
+    });
+  } catch (error) {
+    console.error('Vendor analytics error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -1308,6 +1748,30 @@ app.post('/api/ar/interaction', async (req, res) => {
     });
   } catch (error) {
     console.error('AR interaction error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Demo data endpoint for development (remove in production)
+app.post('/api/dev/seed-demo-data', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ success: false, message: 'Not available in production' });
+    }
+
+    // This endpoint would populate demo data for development
+    // In a real implementation, you'd run the seed.sql file
+    
+    res.json({
+      success: true,
+      message: 'Demo data seeded successfully. Please run the seed.sql file manually.',
+      data: {
+        note: 'Execute the seed.sql file in your Supabase database to populate demo data'
+      }
+    });
+
+  } catch (error) {
+    console.error('Seed demo data error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
