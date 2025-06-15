@@ -17,6 +17,7 @@ import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 
 const Browse = () => {
   const { addToCart, addToFavorites, removeFromFavorites, favorites, categories, showToast } = useApp();
+  const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [priceRange, setPriceRange] = useState([0, 5000]);
@@ -143,15 +144,28 @@ const Browse = () => {
         <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-4 items-center">
             {/* Search */}
-            <div className="relative flex-1">
-              <MagnifyingGlassIcon className="h-5 w-5 text-[#b6cacb] absolute left-3 top-1/2 transform -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search furniture..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:outline-none focus:ring-2 focus:ring-[#29d4c5]"
-              />
+            <div className="relative flex-1 flex">
+              <div className="relative flex-1">
+                <MagnifyingGlassIcon className="h-5 w-5 text-[#b6cacb] absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search furniture... (Press Enter to search)"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setSearchTerm(searchInput);
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/30 rounded-l-lg text-white placeholder-[#b6cacb] focus:outline-none focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
+                />
+              </div>
+              <button
+                onClick={() => setSearchTerm(searchInput)}
+                className="px-4 py-3 bg-[#29d4c5] text-white rounded-r-lg hover:bg-[#209aaa] transition-colors border border-[#29d4c5] flex items-center"
+              >
+                Search
+              </button>
             </div>
 
             {/* Category Filter */}
