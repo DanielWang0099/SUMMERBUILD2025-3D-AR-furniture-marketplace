@@ -274,7 +274,7 @@ const Sell = () => {
     { id: 'dashboard', name: 'Dashboard' },
     { id: 'listings', name: 'My Listings' },
     { id: 'analytics', name: 'Analytics' },
-    { id: 'upload', name: 'Add New Item' }
+    { id: 'upload', name: 'Add New Product' }
   ];
 
   const getStatsData = () => {

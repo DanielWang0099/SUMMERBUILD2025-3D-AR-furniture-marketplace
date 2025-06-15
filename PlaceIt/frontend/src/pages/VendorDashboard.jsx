@@ -164,15 +164,6 @@ const VendorDashboard = () => {
               <StarIcon className="h-8 w-8 text-[#29d4c5]" />
             </div>
           </motion.div>
-        </div>        {/* Add Product Button */}
-        <div className="mb-6">
-          <Link
-            to="/vendor/product/new"
-            className="inline-flex items-center gap-2 bg-[#29d4c5] hover:bg-[#209aaa] text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-          >
-            <PlusIcon className="h-5 w-5" />
-            Add New Product
-          </Link>
         </div>
 
         {/* Tabs */}
@@ -281,14 +272,7 @@ const VendorDashboard = () => {
               <div className="text-center py-16">
                 <CubeIcon className="h-16 w-16 text-[#b6cacb] mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-white mb-2">No products yet</h3>
-                <p className="text-[#b6cacb] mb-6">Start by adding your first product to the marketplace</p>
-                <Link
-                  to="/vendor/add-product"
-                  className="inline-flex items-center gap-2 bg-[#29d4c5] hover:bg-[#209aaa] text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-                >
-                  <PlusIcon className="h-5 w-5" />
-                  Add Your First Product
-                </Link>
+                <p className="text-[#b6cacb] mb-6">Visit the Sell page to start adding products to the marketplace</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
