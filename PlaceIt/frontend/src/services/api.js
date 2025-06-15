@@ -139,6 +139,20 @@ class ApiService {
     });
   }
 
+  async updateFurnitureStatus(id, status) {
+    return this.request(`/furniture/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async bulkUpdateFurniture(action, furniture_ids) {
+    return this.request(`/furniture/bulk/${action}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ furniture_ids }),
+    });
+  }
+
   // ===========================================
   // CATEGORIES METHODS
   // ===========================================
@@ -228,6 +242,14 @@ class ApiService {
     return this.request('/vendor/dashboard');
   }
 
+  async getVendorAnalytics(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = queryString 
+      ? `/vendor/analytics?${queryString}` 
+      : '/vendor/analytics';
+    return this.request(endpoint);
+  }
+
   async getVendorFurniture(params = {}) {
     const queryString = new URLSearchParams(params).toString();
     const endpoint = queryString 
@@ -243,6 +265,10 @@ class ApiService {
         video_url: videoUrl,
       }),
     });
+  }
+
+  async getVendorRecommendations() {
+    return this.request('/vendor/recommendations');
   }
 
   // ===========================================
@@ -273,6 +299,22 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(interactionData),
     });
+  }
+
+  // ===========================================
+  // VENDOR ENHANCED METHODS
+  // ===========================================
+
+  async getVendorStats() {
+    return this.request('/vendor/dashboard');
+  }
+
+  async getVendorDetailedAnalytics(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = queryString 
+      ? `/vendor/analytics?${queryString}` 
+      : '/vendor/analytics';
+    return this.request(endpoint);
   }
 }
 
