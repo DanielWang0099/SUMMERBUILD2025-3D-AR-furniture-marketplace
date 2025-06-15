@@ -32,7 +32,6 @@ const Header = () => {
   ];
 
   const userMenuItems = [
-    { name: 'Add Product', href: '/vendor/product/new', icon: PlusIcon },
     { name: 'Favorites', href: '/favorites', icon: HeartIcon },
     { name: 'Profile', href: '/profile', icon: Cog6ToothIcon },
     { name: 'Logout', action: handleLogout, icon: ArrowRightOnRectangleIcon },

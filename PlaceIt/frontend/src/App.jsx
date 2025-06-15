@@ -32,7 +32,6 @@ function AppContent() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/about" element={<About />} />
-          <Route path="/vendor/product/new" element={<VendorProductForm />} />
           <Route path="/vendor/product/edit/:productId" element={<VendorProductForm />} />
           {/* Add more routes as needed */}
           <Route path="*" element={<div className="min-h-screen bg-white flex items-center justify-center"><h1 className="text-2xl">Page Not Found</h1></div>} />
