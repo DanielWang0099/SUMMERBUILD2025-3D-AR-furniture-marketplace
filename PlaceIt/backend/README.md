@@ -26,6 +26,33 @@ Express.js backend server for PlaceIt application with Supabase integration.
    SUPABASE_URL=your_supabase_url
    SUPABASE_KEY=your_supabase_anon_key
    ```
+   
+### 3D Reconstruction Feature (Tested on Windows only)
+
+- **Install dependencies**
+  1. Download and install [COLMAP](https://colmap.github.io/).
+  2. Download and install [OpenMVS](https://github.com/cdcseacave/openMVS).
+  3. Download and install [FFmpeg](https://ffmpeg.org/).
+  4. Download and install [Blender](https://www.blender.org/download/).
+
+- **Configure environment**  
+  In your `.env` file, add or update:
+  ```env
+  OPENMVS_LOCAL_PATH="C:\Path\To\Your\OpenMVS"
+  ```
+
+- **Prepare Python environment**
+  ```bash
+  # From the backend directory
+  cd photogrammetry
+  python -m venv venv
+  # On PowerShell:
+  .\venv\Scripts\Activate.ps1
+  # On CMD:
+  venv\Scripts\activate.bat
+  pip install -r requirements.txt
+  ```
+
 
 ## Running the Application
 
