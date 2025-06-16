@@ -207,35 +207,32 @@ const Sell = () => {
 
       showToast({ message: 'Listing created successfully!', type: 'success' });
 
-      // Introduce a slight delay before clearing the form and refreshing data
-      // This allows the toast to be visible for a moment before other UI changes.
-      setTimeout(() => {
-        // Reset form
-        setFormData({
-          title: '',
-          price: '',
-          category_id: '',
-          description: '',
-          short_description: '',
-          dimensions: { height: '', width: '', depth: '', unit: 'inches' },
-          materials: [],
-          colors: [],
-          features: [],
-          inventory_count: 1,
-          status: 'draft'
-        });
-        setUploadFiles({ images: [], video: null });
+      // Reset form and state
+      setFormData({
+        title: '',
+        price: '',
+        category_id: '',
+        description: '',
+        short_description: '',
+        dimensions: { height: '', width: '', depth: '', unit: 'inches' },
+        materials: [],
+        colors: [],
+        features: [],
+        inventory_count: 1,
+        status: 'draft'
+      });
+      setUploadFiles({ images: [], video: null });
 
-        // Refresh data
-        fetchDashboardData();
-      }, 500); // 500 milliseconds delay
+      // Update data and navigate to listings
+      await fetchListings();
+      setActiveTab('listings');
 
     } catch (error) {
       showToast({ message: error.message || 'Failed to create listing', type: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [formData, uploadFiles, showToast, fetchDashboardData]);
+  }, [formData, uploadFiles, showToast, fetchListings]);
 
   const deleteListing = async (id) => {
     // Replaced window.confirm with a modal or custom UI for better user experience
