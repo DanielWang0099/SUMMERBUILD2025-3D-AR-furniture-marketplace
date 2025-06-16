@@ -34,13 +34,13 @@ const Home = () => {
   const testimonials = [
     {
       name: "Sarah Chen",
-      role: "Furniture Store Owner",
-      content: "PlaceIt! increased my online sales by 300%. Customers love seeing furniture in their homes before buying.",
+      role: "Furniture Store Owner, PlaceIt! Merchant",
+      content: "My sales increased  by 300% once I started using PlaceIt!. Customers love seeing furniture in their homes before buying.",
       rating: 5
     },
     {
       name: "Mike Rodriguez",
-      role: "Home Buyer",
+      role: "Home Owner",
       content: "Finally found the perfect sofa! The AR feature saved me from buying something that wouldn't fit my space.",
       rating: 5
     },
@@ -48,6 +48,18 @@ const Home = () => {
       name: "Emma Thompson",
       role: "Interior Designer",
       content: "I recommend PlaceIt! to all my clients. It makes furniture selection so much more confident and fun.",
+      rating: 5
+    },
+    {
+      name: "David Lee",
+      role: "Home Owner",
+      content: "The 3D models are so helpful for choosing furniture especially for rearranging my new apartment.",
+      rating: 4
+    },
+    {
+      name: "Tommy Ngyuen",
+      role: "Collector",
+      content: "PlaceIt! makes it so easy to find interesting pieces that fit the rest of my collection. I can never go back to traditional browsing",
       rating: 5
     }
   ];
@@ -65,11 +77,11 @@ const Home = () => {
           >
             <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
               Furniture Shopping
-              <span className="block text-[#29d4c5]">Reimagined</span>
+              <span className="block text-[#29d4c5]">Redefined</span>
             </h1>
             <p className="text-xl md:text-2xl text-[#b6cacb] mb-8 max-w-3xl mx-auto">
               Experience the future of furniture shopping with 3D models and augmented reality. 
-              See how furniture looks in your space before you buy.
+              No guesswork. No tape measures. Just point your phone and watch your dream space come to life.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 
@@ -99,7 +111,7 @@ const Home = () => {
               Revolutionary Features
             </h2>
             <p className="text-xl text-[#2a5d93] max-w-2xl mx-auto">
-              Cutting-edge technology meets intuitive design to transform how you buy and sell furniture.
+              Cutting-edge technology meets intuitive design will transform how you buy and sell furniture.
             </p>
           </div>
           
@@ -131,7 +143,7 @@ const Home = () => {
               See It In Action
             </h2>
             <p className="text-xl text-white/80 max-w-2xl mx-auto">
-              Watch how PlaceIt! transforms a simple video into an immersive 3D shopping experience.
+              Watch how PlaceIt! transforms a simple video into a hyper-realistic 3D model, ready to be placed.
             </p>
           </div>
           
@@ -169,14 +181,14 @@ const Home = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="flex overflow-x-auto overflow-y-hidden space-x-8 pb-4 snap-x snap-mandatory">
             {testimonials.map((testimonial, index) => (
               <motion.div
                 key={testimonial.name}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.2 }}
-                className="bg-gradient-to-br from-white/60 to-white/40 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-8 shadow-lg"
+                
+                className="min-w-[320px] max-w-xs flex-shrink-0 bg-gradient-to-br from-white/60 to-white/40 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-8 shadow-lg snap-center"
               >
                 <div className="flex items-center mb-4">
                   {[...Array(testimonial.rating)].map((_, i) => (

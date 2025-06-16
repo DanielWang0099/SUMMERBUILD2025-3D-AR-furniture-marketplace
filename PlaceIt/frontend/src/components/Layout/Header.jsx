@@ -41,15 +41,16 @@ const Header = () => {
     <header className="relative bg-gradient-to-r from-[#0c1825] via-[#2a5d93] to-[#209aaa] shadow-lg">
       <div className="absolute inset-0 bg-black/10 backdrop-blur-sm" />
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
             <img src="/src/assets/placeit-logo-no-bg.png" alt="PlaceIt!" className="h-10 w-auto" />
             <span className="text-2xl font-bold text-white">PlaceIt!</span>
           </Link>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex space-x-8">
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex space-x-6 ml-10">
+        
             {navigation.map((item) => (
               <Link
                 key={item.name}
@@ -59,12 +60,14 @@ const Header = () => {
                 {item.name}
               </Link>
             ))}
-          </nav>
 
-          {/* Actions */}
-          <div className="hidden md:flex items-center space-x-4">
-            {/* Cart */}
-            <button
+          </nav>    {/* Spacer pushes cart/login to the right */}
+          <div className="flex-1"></div>
+                    {/* Desktop Right Side */}
+          <div className="hidden md:flex items-center space-x-12">
+            {/* Cart Button */}
+            <button 
+          
               onClick={() => navigate('/cart')}
               className="relative p-2 text-white transition-all duration-200 hover:text-[#29d4c5]"
             >
