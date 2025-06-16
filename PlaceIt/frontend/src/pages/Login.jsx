@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
+import { isValidEmail, validatePassword, isValidPhone } from '../utils/validation';
 import { 
   EnvelopeIcon, 
   LockClosedIcon, 
@@ -18,14 +19,13 @@ const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);  
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
     name: '',
     phone: '',
-    role: 'client',
     address: {
       street: '',
       city: '',
@@ -33,46 +33,76 @@ const Login = () => {
       country: '',
       zip: ''
     }
-  });
-
+  });  
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-
+    
     try {
-      if (isLogin) {
-        // Login
-        await login({
-          email: formData.email,
-          password: formData.password
-        });
-        showToast('Login successful!', 'success');
-        navigate('/');
-      } else {
-        // Register
-        if (formData.password !== formData.confirmPassword) {
-          showToast('Passwords do not match', 'error');
+      // Validate form data
+      if (!formData.email || !isValidEmail(formData.email)) {
+        showToast({ type: 'error', message: 'Please enter a valid email address' });
+        return;
+      }
+      
+      const passwordValidation = validatePassword(formData.password);
+      if (!passwordValidation.isValid) {
+        showToast({ type: 'error', message: passwordValidation.message });
+        return;
+      }
+      
+      if (!isLogin) {
+        // Additional register validations
+        if (!formData.name.trim()) {
+          showToast({ type: 'error', message: 'Please enter your full name' });
           return;
         }
         
-        if (formData.password.length < 6) {
-          showToast('Password must be at least 6 characters', 'error');
+        if (formData.password !== formData.confirmPassword) {
+          showToast({ type: 'error', message: 'Passwords do not match' });
           return;
         }
-
-        await register({
+        
+        if (formData.phone && !isValidPhone(formData.phone)) {
+          showToast({ type: 'error', message: 'Please enter a valid phone number or leave it empty' });
+          return;
+        }
+      }
+      
+      setIsLoading(true);
+      
+      if (isLogin) {
+        // Login
+        const response = await login({
+          email: formData.email,
+          password: formData.password
+        });
+        
+        if (response?.success) {
+          showToast({ type: 'success', message: 'Login successful!' });
+          navigate('/');
+        } else {
+          throw new Error(response?.message || 'Login failed');
+        }
+      } else {
+        // Register
+        const response = await register({
           email: formData.email,
           password: formData.password,
           name: formData.name,
           phone: formData.phone,
-          role: formData.role,
           address: formData.address
         });
-        showToast('Registration successful!', 'success');
-        navigate('/');
+        
+        if (response?.success) {
+          showToast({ type: 'success', message: 'Registration successful!' });
+          navigate('/');
+        } else {
+          throw new Error(response?.message || 'Registration failed');
+        }
       }
     } catch (error) {
-      showToast(error.message || 'An error occurred', 'error');
+      showToast({ type: 'error', message: error.message || 'An error occurred' });
     } finally {
       setIsLoading(false);
     }
@@ -261,48 +291,6 @@ const Login = () => {
                       />
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-white mb-2">
-                      Account Type
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="relative">
-                        <input
-                          type="radio"
-                          name="role"
-                          value="client"
-                          checked={formData.role === 'client'}
-                          onChange={handleInputChange}
-                          className="sr-only"
-                        />
-                        <div className={`flex items-center justify-center px-4 py-3 rounded-lg border-2 cursor-pointer transition-all ${
-                          formData.role === 'client'
-                            ? 'border-[#29d4c5] bg-[#29d4c5]/20 text-white'
-                            : 'border-white/30 bg-white/10 text-[#b6cacb] hover:bg-white/20'
-                        }`}>
-                          <span className="text-sm font-medium">Buyer</span>
-                        </div>
-                      </label>
-                      <label className="relative">
-                        <input
-                          type="radio"
-                          name="role"
-                          value="vendor"
-                          checked={formData.role === 'vendor'}
-                          onChange={handleInputChange}
-                          className="sr-only"
-                        />
-                        <div className={`flex items-center justify-center px-4 py-3 rounded-lg border-2 cursor-pointer transition-all ${
-                          formData.role === 'vendor'
-                            ? 'border-[#29d4c5] bg-[#29d4c5]/20 text-white'
-                            : 'border-white/30 bg-white/10 text-[#b6cacb] hover:bg-white/20'
-                        }`}>
-                          <span className="text-sm font-medium">Seller</span>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
                 </>
               )}
             </div>
@@ -328,14 +316,13 @@ const Login = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setIsLogin(!isLogin);
+                  setIsLogin(!isLogin);                  
                   setFormData({
                     email: '',
                     password: '',
                     confirmPassword: '',
                     name: '',
                     phone: '',
-                    role: 'client',
                     address: {
                       street: '',
                       city: '',

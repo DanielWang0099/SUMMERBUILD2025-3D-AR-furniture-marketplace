@@ -19,11 +19,11 @@ React frontend application for PlaceIt featuring 3D/WebXR experiences with Three
    npm install
    ```
 
-3. **Environment Configuration (Optional):**
-   Create a `.env` file in the frontend directory if you need environment variables:
+3. **Environment Configuration: **
+   Create a `.env` file in the frontend directory:
    ```env
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   VITE_API_URL=http://localhost:3002
+
    ```
 
 ## Running the Application

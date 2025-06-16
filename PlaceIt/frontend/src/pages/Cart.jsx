@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
+import NoData from '../components/UI/NoData';
 import { 
   TrashIcon,
   MinusIcon,
@@ -43,29 +44,24 @@ const Cart = () => {
   const shipping = subtotal > 1000 ? 0 : 99;
   const tax = subtotal * 0.08;
   const total = subtotal + shipping + tax;
-
   if (cart.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa]">
-        <div className="container mx-auto px-4 py-16 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-12 shadow-lg max-w-md mx-auto"
-          >
-            <ShoppingBagIcon className="h-24 w-24 text-[#b6cacb] mx-auto mb-6" />
-            <h2 className="text-3xl font-bold text-white mb-4">Your cart is empty</h2>
-            <p className="text-[#b6cacb] mb-8">
-              Discover amazing furniture with 3D models and AR visualization
-            </p>
-            <Link
-              to="/browse"
-              className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white px-8 py-3 rounded-lg hover:shadow-lg transition-all duration-200 inline-flex items-center space-x-2"
-            >
-              <ShoppingBagIcon className="h-5 w-5" />
-              <span>Start Shopping</span>
-            </Link>
-          </motion.div>
+        <div className="container mx-auto px-4 py-16">
+          <NoData 
+            message="Your cart is empty" 
+            icon={ShoppingBagIcon}
+            className="max-w-md mx-auto p-12"
+            actionComponent={
+              <Link
+                to="/browse"
+                className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white px-8 py-3 rounded-lg hover:shadow-lg transition-all duration-200 inline-flex items-center space-x-2"
+              >
+                <ShoppingBagIcon className="h-5 w-5" />
+                <span>Start Shopping</span>
+              </Link>
+            }
+          />
         </div>
       </div>
     );

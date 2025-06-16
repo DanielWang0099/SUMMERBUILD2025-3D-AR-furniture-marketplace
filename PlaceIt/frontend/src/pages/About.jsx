@@ -21,7 +21,7 @@ const About = () => {
       name: "Sarah Johnson",
       role: "CEO & Co-Founder",
       bio: "Former VP of Product at major furniture retailer. Passionate about revolutionizing online furniture shopping.",
-      image: "https://images.unsplash.com/photo-1494790108755-2616b6dec812?w=300"
+      image: "https://images.unsplash.com/photo-1619895862022-09114b41f16f?w=600"
     },
     {
       name: "Michael Chen",

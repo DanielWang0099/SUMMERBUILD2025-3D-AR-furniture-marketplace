@@ -34,17 +34,22 @@ const ProductDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [addingToCart, setAddingToCart] = useState(false);
-
   // Fetch product data
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         setIsLoading(true);
         const response = await apiService.getFurnitureById(id);
-        setProduct(response.data);
-        setError(null);
+        
+        if (response.success) {
+          setProduct(response.data);
+          setError(null);
+        } else {
+          throw new Error(response.message || 'Failed to load product');
+        }
       } catch (err) {
-        setError('Failed to load product');
+        setError(err.message || 'Failed to load product');
+        showToast({ type: 'error', message: err.message || 'Failed to load product' });
         console.error('Error fetching product:', err);
       } finally {
         setIsLoading(false);
@@ -54,9 +59,15 @@ const ProductDetail = () => {
     const fetchReviews = async () => {
       try {
         const response = await apiService.getReviews(id);
-        setReviews(response.data || []);
+        if (response.success) {
+          setReviews(response.data || []);
+        } else {
+          console.warn('No reviews found or error fetching reviews');
+          setReviews([]);
+        }
       } catch (err) {
         console.error('Error fetching reviews:', err);
+        setReviews([]);
       }
     };
 
@@ -65,31 +76,32 @@ const ProductDetail = () => {
       fetchReviews();
     }
   }, [id]);
-
   const handleAddToCart = async () => {
     try {
       setAddingToCart(true);
       await addToCart(product, quantity);
-      showToast('Added to cart!', 'success');
+      showToast({ type: 'success', message: `${product.title} added to cart!` });
     } catch (error) {
-      showToast('Failed to add to cart', 'error');
+      showToast({ type: 'error', message: error.message || 'Failed to add to cart' });
     } finally {
       setAddingToCart(false);
     }
   };
 
   const handleToggleFavorite = async () => {
+    if (!product) return;
+    
     try {
-      const isFavorite = favorites.some(fav => fav.furniture.id === product.id);
+      const isFavorite = favorites.some(fav => fav.furniture_id === product.id);
       if (isFavorite) {
         await removeFromFavorites(product.id);
-        showToast('Removed from favorites', 'info');
+        showToast({ type: 'info', message: 'Removed from favorites' });
       } else {
         await addToFavorites(product);
-        showToast('Added to favorites!', 'success');
+        showToast({ type: 'success', message: 'Added to favorites!' });
       }
     } catch (error) {
-      showToast('Failed to update favorites', 'error');
+      showToast({ type: 'error', message: error.message || 'Failed to update favorites' });
     }
   };
 

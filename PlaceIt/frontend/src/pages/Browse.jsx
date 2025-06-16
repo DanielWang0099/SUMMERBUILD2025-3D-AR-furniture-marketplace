@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import apiService from '../services/api';
+import NoData from '../components/UI/NoData';
 import { 
   FunnelIcon, 
   MagnifyingGlassIcon,
@@ -16,6 +17,7 @@ import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 
 const Browse = () => {
   const { addToCart, addToFavorites, removeFromFavorites, favorites, categories, showToast } = useApp();
+  const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [priceRange, setPriceRange] = useState([0, 5000]);
@@ -27,7 +29,6 @@ const Browse = () => {
   const [furniture, setFurniture] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-
   // Fetch furniture data
   useEffect(() => {
     const fetchFurniture = async () => {
@@ -44,18 +45,25 @@ const Browse = () => {
         };
         
         const response = await apiService.getFurniture(params);
-        setFurniture(response.data || []);
-        setError(null);
+        
+        if (response.success) {
+          setFurniture(response.data || []);
+          setError(null);
+        } else {
+          throw new Error(response.message || 'Failed to load furniture');
+        }
       } catch (err) {
-        setError('Failed to load furniture');
+        setError(err.message || 'Failed to load furniture');
+        showToast({ type: 'error', message: err.message || 'Failed to load furniture' });
         console.error('Error fetching furniture:', err);
+        setFurniture([]); // Set empty array on error
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchFurniture();
-  }, [searchTerm, selectedCategory, priceRange, show3DOnly, showAROnly, sortBy]);
+  }, [searchTerm, selectedCategory, priceRange, show3DOnly, showAROnly, sortBy, showToast]);
 
   const handleAddToCart = async (furnitureItem) => {
     try {
@@ -99,19 +107,22 @@ const Browse = () => {
       </div>
     );
   }
-
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa] flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-400 text-lg mb-4">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="px-6 py-3 bg-[#29d4c5] text-white rounded-lg hover:bg-[#209aaa] transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
+        <NoData 
+          message={error}
+          icon={EyeIcon}
+          className="max-w-md"
+          actionComponent={
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-6 py-3 bg-[#29d4c5] text-white rounded-lg hover:bg-[#209aaa] transition-colors"
+            >
+              Try Again
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -133,15 +144,28 @@ const Browse = () => {
         <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-4 items-center">
             {/* Search */}
-            <div className="relative flex-1">
-              <MagnifyingGlassIcon className="h-5 w-5 text-[#b6cacb] absolute left-3 top-1/2 transform -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search furniture..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:outline-none focus:ring-2 focus:ring-[#29d4c5]"
-              />
+            <div className="relative flex-1 flex">
+              <div className="relative flex-1">
+                <MagnifyingGlassIcon className="h-5 w-5 text-[#b6cacb] absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search furniture... (Press Enter to search)"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setSearchTerm(searchInput);
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/30 rounded-l-lg text-white placeholder-[#b6cacb] focus:outline-none focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
+                />
+              </div>
+              <button
+                onClick={() => setSearchTerm(searchInput)}
+                className="px-4 py-3 bg-[#29d4c5] text-white rounded-r-lg hover:bg-[#209aaa] transition-colors border border-[#29d4c5] flex items-center"
+              >
+                Search
+              </button>
             </div>
 
             {/* Category Filter */}

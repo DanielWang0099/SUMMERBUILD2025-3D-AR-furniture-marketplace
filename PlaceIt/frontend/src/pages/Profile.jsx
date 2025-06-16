@@ -84,30 +84,19 @@ const Profile = () => {
       ...prev,
       [name]: value
     }));
-  };
+  };  const { updateProfile: apiUpdateProfile } = useApp();
 
   const handleSaveProfile = async () => {
     setIsLoading(true);
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/user/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        showToast('Profile updated successfully!', 'success');
+      const response = await apiUpdateProfile(formData);
+      
+      if (response.success) {
+        showToast({ type: 'success', message: 'Profile updated successfully!' });
         setIsEditing(false);
-        // Update user data in context if needed
-        // updateUser(updatedUser);
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update profile');
+        throw new Error(response.message || 'Failed to update profile');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -116,36 +105,30 @@ const Profile = () => {
       setIsLoading(false);
     }
   };
-
   const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      showToast('New passwords do not match', 'error');
+      showToast({ type: 'error', message: 'New passwords do not match' });
       return;
     }
 
     if (passwordData.newPassword.length < 6) {
-      showToast('Password must be at least 6 characters', 'error');
+      showToast({ type: 'error', message: 'Password must be at least 6 characters' });
       return;
     }
 
     setIsLoading(true);
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/user/change-password`, {
+      const response = await apiService.request('/user/change-password', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword
         })
       });
 
-      if (response.ok) {
-        showToast('Password changed successfully!', 'success');
+      if (response.success) {
+        showToast({ type: 'success', message: 'Password changed successfully!' });
         setShowPasswordChange(false);
         setPasswordData({
           currentPassword: '',
@@ -153,8 +136,7 @@ const Profile = () => {
           confirmPassword: ''
         });
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to change password');
+        throw new Error(response.message || 'Failed to change password');
       }
     } catch (error) {
       console.error('Error changing password:', error);
@@ -191,16 +173,10 @@ const Profile = () => {
             animate={{ opacity: 1, x: 0 }}
             className="lg:col-span-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 shadow-lg h-fit"
           >
-            <div className="text-center">
-              <div className="relative inline-block">
+            <div className="text-center">              <div className="relative inline-block">
                 <div className="w-24 h-24 bg-gradient-to-br from-[#29d4c5] to-[#209aaa] rounded-full flex items-center justify-center mb-4">
                   <UserIcon className="h-12 w-12 text-white" />
                 </div>
-                {user?.role === 'vendor' && (
-                  <span className="absolute -bottom-2 -right-2 bg-[#29d4c5] text-[#0c1825] text-xs px-2 py-1 rounded-full font-semibold">
-                    Vendor
-                  </span>
-                )}
               </div>
               
               <h2 className="text-xl font-semibold text-white mb-2">

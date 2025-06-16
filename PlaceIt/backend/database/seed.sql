@@ -1,8 +1,96 @@
 -- Seed data for PlaceIt! database
 -- This includes sample categories, users, furniture items, and related data
 
--- Insert sample users (these will need to be created through Supabase Auth first)
--- For now, we'll just create the extended user profiles
+-- First, insert sample categories (if they don't exist)
+INSERT INTO categories (id, name, slug, description, sort_order, is_active) VALUES
+    ('550e8400-e29b-41d4-a716-446655440101', 'Sofas & Chairs', 'sofas-chairs', 'Comfortable seating furniture for any space', 1, true),
+    ('550e8400-e29b-41d4-a716-446655440102', 'Tables', 'tables', 'Dining tables, coffee tables, and more', 2, true),
+    ('550e8400-e29b-41d4-a716-446655440103', 'Beds & Mattresses', 'beds-mattresses', 'Bedroom furniture for better sleep', 3, true),
+    ('550e8400-e29b-41d4-a716-446655440104', 'Storage & Organization', 'storage-organization', 'Keep your space organized', 4, true),
+    ('550e8400-e29b-41d4-a716-446655440105', 'Lighting', 'lighting', 'Illuminate your space beautifully', 5, true),
+    ('550e8400-e29b-41d4-a716-446655440106', 'Decor & Accessories', 'decor-accessories', 'Finishing touches for your home', 6, true)
+ON CONFLICT (name) DO NOTHING;
+
+-- Insert sample users (these represent user profiles, auth users need to be created separately)
+-- Note: In production, these would be created through Supabase Auth registration
+INSERT INTO users (id, email, name, phone, address, bio, website, is_verified, is_active) VALUES
+    (
+        '550e8400-e29b-41d4-a716-446655440011', 
+        'sarah.designer@email.com', 
+        'Sarah Johnson', 
+        '+1 (555) 123-4567',
+        '{"street": "123 Design St", "city": "San Francisco", "state": "CA", "country": "USA", "zip": "94102"}',
+        'Interior designer with 10+ years of experience in modern furniture curation.',
+        'https://sarahdesigns.com',
+        true,
+        true
+    ),
+    (
+        '550e8400-e29b-41d4-a716-446655440012', 
+        'mike.craftsman@email.com', 
+        'Mike Rodriguez', 
+        '+1 (555) 234-5678',
+        '{"street": "456 Workshop Ave", "city": "Austin", "state": "TX", "country": "USA", "zip": "73301"}',
+        'Handcraft furniture maker specializing in solid wood pieces.',
+        'https://mikescrafts.com',
+        true,
+        true
+    ),
+    (
+        '550e8400-e29b-41d4-a716-446655440013', 
+        'emma.vintage@email.com', 
+        'Emma Thompson', 
+        '+1 (555) 345-6789',
+        '{"street": "789 Antique Rd", "city": "Portland", "state": "OR", "country": "USA", "zip": "97201"}',
+        'Vintage furniture collector and restoration expert.',
+        'https://emmavintage.com',
+        true,
+        true
+    ),    (
+        '550e8400-e29b-41d4-a716-446655440014', 
+        'alex.modern@email.com', 
+        'Alex Chen', 
+        '+1 (555) 456-7890',
+        '{"street": "321 Modern Blvd", "city": "Seattle", "state": "WA", "country": "USA", "zip": "98101"}',
+        'Contemporary furniture designer with a focus on minimalist aesthetics.',
+        'https://alexmodern.com',
+        true,
+        true
+    ),
+    (
+        '550e8400-e29b-41d4-a716-446655440021', 
+        'john.buyer@email.com', 
+        'John Smith', 
+        '+1 (555) 567-8901',
+        '{"street": "456 Buyer Lane", "city": "Denver", "state": "CO", "country": "USA", "zip": "80201"}',
+        'Home enthusiast who loves quality furniture.',
+        null,
+        true,
+        true
+    ),
+    (
+        '550e8400-e29b-41d4-a716-446655440022', 
+        'maria.customer@email.com', 
+        'Maria Garcia', 
+        '+1 (555) 678-9012',
+        '{"street": "789 Customer Ave", "city": "Miami", "state": "FL", "country": "USA", "zip": "33101"}',
+        'Interior decorator with an eye for modern design.',
+        null,
+        true,
+        true
+    ),
+    (
+        '550e8400-e29b-41d4-a716-446655440023', 
+        'david.reviewer@email.com', 
+        'David Wilson', 
+        '+1 (555) 789-0123',
+        '{"street": "123 Review St", "city": "Chicago", "state": "IL", "country": "USA", "zip": "60601"}',
+        'Furniture collector and quality enthusiast.',
+        null,
+        true,
+        true
+    )
+ON CONFLICT (id) DO NOTHING;
 
 -- Sample furniture items with complete data
 INSERT INTO furniture (
@@ -12,9 +100,8 @@ INSERT INTO furniture (
     inventory_count, status, view_count
 ) VALUES 
 (
-    '550e8400-e29b-41d4-a716-446655440001',
-    '550e8400-e29b-41d4-a716-446655440011', -- vendor_id (needs to exist in users table)
-    (SELECT id FROM categories WHERE slug = 'sofas-chairs'),
+    '550e8400-e29b-41d4-a716-446655440001',    '550e8400-e29b-41d4-a716-446655440011', -- vendor_id (Sarah Johnson)
+    '550e8400-e29b-41d4-a716-446655440101', -- category: Sofas & Chairs
     'Modern Sectional Sofa',
     'modern-sectional-sofa',
     'Experience ultimate comfort with this modern sectional sofa. Crafted with premium materials and designed for contemporary living spaces. The sleek design and plush cushioning make it perfect for both relaxation and entertaining. Features high-density foam cushions, solid hardwood frame, and premium upholstery.',
@@ -37,9 +124,8 @@ INSERT INTO furniture (
     234
 ),
 (
-    '550e8400-e29b-41d4-a716-446655440002',
-    '550e8400-e29b-41d4-a716-446655440012', -- different vendor
-    (SELECT id FROM categories WHERE slug = 'tables'),
+    '550e8400-e29b-41d4-a716-446655440002',    '550e8400-e29b-41d4-a716-446655440012', -- vendor_id (Mike Rodriguez)
+    '550e8400-e29b-41d4-a716-446655440102', -- category: Tables
     'Handcrafted Oak Dining Table',
     'handcrafted-oak-dining-table',
     'Beautiful handcrafted dining table made from solid oak wood. Features a natural finish that highlights the wood grain. Perfect for family gatherings and dinner parties. Seats up to 6 people comfortably.',
@@ -62,9 +148,8 @@ INSERT INTO furniture (
     156
 ),
 (
-    '550e8400-e29b-41d4-a716-446655440003',
-    '550e8400-e29b-41d4-a716-446655440011',
-    (SELECT id FROM categories WHERE slug = 'beds-mattresses'),
+    '550e8400-e29b-41d4-a716-446655440003',    '550e8400-e29b-41d4-a716-446655440011', -- vendor_id (Sarah Johnson)
+    '550e8400-e29b-41d4-a716-446655440103', -- category: Beds & Mattresses
     'Platform Bed Frame with Storage',
     'platform-bed-frame-storage',
     'Minimalist platform bed frame with built-in storage compartments. Perfect for modern bedrooms where space is at a premium. The clean lines and storage functionality make it both beautiful and practical.',
@@ -87,9 +172,8 @@ INSERT INTO furniture (
     89
 ),
 (
-    '550e8400-e29b-41d4-a716-446655440004',
-    '550e8400-e29b-41d4-a716-446655440012',
-    (SELECT id FROM categories WHERE slug = 'storage'),
+    '550e8400-e29b-41d4-a716-446655440004',    '550e8400-e29b-41d4-a716-446655440012', -- vendor_id (Mike Rodriguez)
+    '550e8400-e29b-41d4-a716-446655440104', -- category: Storage & Organization
     'Industrial Bookshelf Unit',
     'industrial-bookshelf-unit',
     'Industrial-style bookshelf with metal frame and reclaimed wood shelves. Perfect for displaying books, decor, and personal items. The rugged design adds character to any room.',
@@ -112,9 +196,8 @@ INSERT INTO furniture (
     78
 ),
 (
-    '550e8400-e29b-41d4-a716-446655440005',
-    '550e8400-e29b-41d4-a716-446655440013', -- another vendor
-    (SELECT id FROM categories WHERE slug = 'lighting'),
+    '550e8400-e29b-41d4-a716-446655440005',    '550e8400-e29b-41d4-a716-446655440013', -- vendor_id (Emma Thompson)
+    '550e8400-e29b-41d4-a716-446655440105', -- category: Lighting
     'Pendant Light Fixture Set',
     'pendant-light-fixture-set',
     'Modern pendant light fixture with adjustable height. Features Edison-style bulbs and a sleek metal finish. Perfect for kitchen islands, dining areas, or anywhere you need focused lighting.',
@@ -137,9 +220,8 @@ INSERT INTO furniture (
     92
 ),
 (
-    '550e8400-e29b-41d4-a716-446655440006',
-    '550e8400-e29b-41d4-a716-446655440011',
-    (SELECT id FROM categories WHERE slug = 'sofas-chairs'),
+    '550e8400-e29b-41d4-a716-446655440006',    '550e8400-e29b-41d4-a716-446655440011', -- vendor_id (Sarah Johnson)
+    '550e8400-e29b-41d4-a716-446655440101', -- category: Sofas & Chairs
     'Velvet Accent Chair',
     'velvet-accent-chair',
     'Luxurious velvet accent chair with gold metal legs. The perfect statement piece for any living room or bedroom. Comfortable padding and beautiful velvet upholstery make this chair both stylish and functional.',
