@@ -26,9 +26,9 @@ const Header = () => {
   };
 
   const navigation = [
-    { name: 'Browse', href: '/browse' },
-    { name: 'Sell', href: '/sell' },
-    { name: 'About', href: '/about' },
+    { name: 'Browse', href: '/browse', requiresAuth: true },
+    { name: 'Sell', href: '/sell', requiresAuth: true },
+    { name: 'About', href: '/about', requiresAuth: false },
   ];
 
   const userMenuItems = [
@@ -54,8 +54,13 @@ const Header = () => {
             {navigation.map((item) => (
               <Link
                 key={item.name}
-                to={item.href}
+                to={item.requiresAuth && !isAuthenticated ? '/login' : item.href}
                 className="text-white px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 hover:bg-gradient-to-r hover:from-[#2a5d93] hover:via-[#209aaa] hover:to-[#29d4c5] hover:text-white"
+                onClick={(e) => {
+                  if (item.requiresAuth && !isAuthenticated) {
+                    showToast({ type: 'info', message: `Please login to access the ${item.name.toLowerCase()} feature` });
+                  }
+                }}
               >
                 {item.name}
               </Link>
@@ -67,8 +72,14 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-12">
             {/* Cart Button */}
             <button 
-          
-              onClick={() => navigate('/cart')}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  navigate('/login');
+                  showToast({ type: 'info', message: 'Please login to access your cart' });
+                } else {
+                  navigate('/cart');
+                }
+              }}
               className="relative p-2 text-white transition-all duration-200 hover:text-[#29d4c5]"
             >
               <ShoppingCartIcon className="h-6 w-6" />
@@ -139,8 +150,13 @@ const Header = () => {
               {navigation.map((item) => (
                 <Link
                   key={item.name}
-                  to={item.href}
-                  onClick={() => setIsMenuOpen(false)}
+                  to={item.requiresAuth && !isAuthenticated ? '/login' : item.href}
+                  onClick={() => {
+                    if (item.requiresAuth && !isAuthenticated) {
+                      showToast({ type: 'info', message: `Please login to access the ${item.name.toLowerCase()} feature` });
+                    }
+                    setIsMenuOpen(false);
+                  }}
                   className="block text-white px-3 py-2 rounded-md text-base font-medium transition-all duration-200 hover:bg-gradient-to-r hover:from-[#2a5d93] hover:via-[#209aaa] hover:to-[#29d4c5]"
                 >
                   {item.name}
