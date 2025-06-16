@@ -12,6 +12,9 @@ pnpm-debug.log*
 .env.test.local
 .env.production.local
 
+# Python env for Photogrammetry folder
+Photogrammetry/.venv/
+
 # Logs
 logs
 *.log

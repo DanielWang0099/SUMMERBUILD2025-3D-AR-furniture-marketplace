@@ -4,6 +4,8 @@ const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
 const path = require('path');
+const { reconstructFurniture } = require('./photogrammetry/reconstruct.js');
+
 
 const app = express();
 const port = process.env.PORT || 3002;
@@ -1780,3 +1782,33 @@ app.listen(port, () => {
   console.log(`PlaceIt Backend API listening on port ${port}`);
   console.log(`API documentation available at http://localhost:${port}`);
 });
+
+app.post('/api/photogrammetry/reconstruct', async (req, res) => {
+  try {
+    const { furnitureId } = req.body;
+
+    // Check if there is a furnitureId
+    if (!furnitureId) {
+      return res.status(400).json({ success: false, message: 'Furniture ID is required' });
+    }
+    // Check if the furniture exists
+    const { data: furniture, error: checkError } = await supabase
+      .from('furniture')
+      .select('id, vendor_id')
+      .eq('id', furnitureId)
+      .single();
+
+    if (checkError || !furniture) {
+      return res.status(404).json({ success: false, message: 'Furniture not found in database' });
+    }
+    
+    await reconstructFurniture(furnitureId);
+    res.json({ success: true, message: 'Reconstruction started' });
+  } catch (error) {
+    console.error('Reconstruction error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+
+

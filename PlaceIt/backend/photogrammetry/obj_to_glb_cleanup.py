@@ -290,20 +290,25 @@ def debug_available_mesh_operators():
 
 def main():
     try:
+        # Blender's Python interpreter passes arguments after a '--' separator.
+        # This script expects two arguments: input_obj_path and output_glb_path.
         argv = sys.argv
         print(f"Full argv: {argv}")
 
+        # Check if running within Blender's GUI (for testing purposes)
+        # If running in GUI, provide dummy arguments. Otherwise, parse from command line.
         if "--" not in argv:
-            if bpy.context.space_data: # Check if running in Blender GUI
+            if bpy.context.space_data:
                 print("Running in Blender GUI, using dummy arguments for testing.")
+                # IMPORTANT: Replace these dummy paths with actual paths for local testing in Blender's GUI
                 script_args = [
-                    "C:/Users/danie/.vscode/Colmap-Msv-3D/photogrammetry_project/output/scene_textured_mesh.obj",
-                    "C:/Users/danie/.vscode/Colmap-Msv-3D/photogrammetry_project/output/final_model_cleaned.glb"
+                    "C:/Users/danie/path/to/your/scene_textured_mesh.obj",
+                    "C:/Users/danie/path/to/your/final_model_cleaned.glb"
                 ]
             else:
                 raise ValueError("No '--' separator found in arguments. This script expects command-line arguments after '--'.")
         else:
-            script_args = argv[argv.index("--") + 1:]
+            script_args = argv[argv.index("--") + 1:] # Get arguments after '--'
 
         print(f"Script args: {script_args}")
 

@@ -19,7 +19,8 @@ const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);  const [formData, setFormData] = useState({
+  const [isLoading, setIsLoading] = useState(false);  
+  const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
@@ -32,7 +33,9 @@ const Login = () => {
       country: '',
       zip: ''
     }
-  });  const handleSubmit = async (e) => {
+  });  
+  
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     try {
