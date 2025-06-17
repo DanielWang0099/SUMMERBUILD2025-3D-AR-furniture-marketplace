@@ -1,0 +1,17 @@
+{
+  "name": "threejs-webxr-drag",
+  "version": "1.0.0",
+  "description": "Three.js WebXR drag and drop demo",
+  "main": "main.js",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}
