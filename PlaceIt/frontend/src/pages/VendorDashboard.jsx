@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
@@ -29,16 +29,54 @@ const VendorDashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true);
-        const [furnitureResponse, analyticsResponse] = await Promise.all([
-          apiService.getVendorFurniture(),
-          apiService.getVendorAnalytics()
-        ]);
+        // For now, let's use mock data to test the UI
+        const mockFurniture = [
+          {
+            id: 1,
+            title: "Modern Leather Sofa",
+            price: 1299,
+            status: "active",
+            view_count: 45,
+            review_count: 8,
+            has_3d_model: true,
+            has_ar_support: true,
+            media_assets: [{ url: "https://via.placeholder.com/300x200", is_primary: true }]
+          },
+          {
+            id: 2,
+            title: "Wooden Coffee Table",
+            price: 599,
+            status: "draft",
+            view_count: 12,
+            review_count: 3,
+            has_3d_model: false,
+            has_ar_support: false,
+            media_assets: [{ url: "https://via.placeholder.com/300x200", is_primary: true }]
+          }
+        ];
         
-        setFurniture(furnitureResponse.data || []);
-        setAnalytics(analyticsResponse.data || {});
+        const mockAnalytics = {
+          total_views: 157,
+          total_revenue: 2450,
+          average_rating: 4.6
+        };
+        
+        setFurniture(mockFurniture);
+        setAnalytics(mockAnalytics);
+        
+        // Uncomment these when backend is ready
+        // const [furnitureResponse, analyticsResponse] = await Promise.all([
+        //   apiService.getVendorFurniture(),
+        //   apiService.getVendorAnalytics()
+        // ]);
+        // setFurniture(furnitureResponse.data || []);
+        // setAnalytics(analyticsResponse.data || {});
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         showToast('Failed to load dashboard data', 'error');
+        // Set empty data as fallback
+        setFurniture([]);
+        setAnalytics({ total_views: 0, total_revenue: 0, average_rating: 0 });
       } finally {
         setIsLoading(false);
       }
@@ -95,10 +133,9 @@ const VendorDashboard = () => {
     { id: 'products', name: 'My Products', icon: CubeIcon },
     { id: 'analytics', name: 'Analytics', icon: ChartBarIcon }
   ];
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa]">
-      <div className="container mx-auto px-4 py-8">        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa] w-full">
+      <div className="container mx-auto px-4 py-8">{/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">My Dashboard</h1>
           <p className="text-[#b6cacb]">Welcome back, {user?.name}!</p>

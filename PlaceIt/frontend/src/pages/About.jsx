@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
 import { 
   CubeIcon, 
   CameraIcon, 
@@ -9,6 +11,32 @@ import {
 } from '@heroicons/react/24/outline';
 
 const About = () => {
+  const { isAuthenticated } = useApp();
+  const navigate = useNavigate();  const handleNavigation = (path) => {
+    if (!isAuthenticated) {
+      // Check if we're already at the top (within 100px threshold)
+      const isNearTop = window.scrollY <= 100;
+      
+      if (isNearTop) {
+        // No need to scroll, redirect instantly
+        navigate('/login');
+      } else {
+        // Smooth scroll to top before navigating to login
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        
+        // Wait for scroll animation to complete before navigating
+        setTimeout(() => {
+          navigate('/login');
+        }, 800);
+      }
+    } else {
+      navigate(path);
+    }
+  };
+
   const stats = [
     { label: "Active Sellers", value: "10K+", icon: UserGroupIcon },
     { label: "Products Listed", value: "50K+", icon: ShoppingBagIcon },
@@ -274,22 +302,21 @@ const About = () => {
             </h2>
             <p className="text-xl text-[#b6cacb] mb-8 max-w-2xl mx-auto">
               Join PlaceIt! today and discover the future of furniture shopping and selling.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
-                href="/browse"
+            </p>            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => handleNavigation('/browse')}
                 className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-200 inline-flex items-center justify-center space-x-2"
               >
                 <ShoppingBagIcon className="h-6 w-6" />
                 <span>Start Shopping</span>
-              </a>
-              <a
-                href="/sell"
+              </button>
+              <button
+                onClick={() => handleNavigation('/sell')}
                 className="bg-white/20 backdrop-blur-sm border border-white/30 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/30 transition-all duration-200 inline-flex items-center justify-center space-x-2"
               >
                 <CubeIcon className="h-6 w-6" />
                 <span>Start Selling</span>
-              </a>
+              </button>
             </div>
           </motion.div>
         </div>

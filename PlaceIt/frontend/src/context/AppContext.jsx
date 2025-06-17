@@ -168,6 +168,7 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     initializeApp();
   }, []);
+  
   const initializeApp = async () => {
     try {
       dispatch({ type: actionTypes.SET_LOADING, payload: true });

@@ -29,6 +29,7 @@ const Sell = () => {
   const [listings, setListings] = useState([]);
   const [categories, setCategories] = useState([]);  // Removed local toast state and setToast setter as it will be managed globally
   // const [toast, setToast] = useState(null);
+
   const [formData, setFormData] = useState({
     title: '',
     price: '',
@@ -40,9 +41,15 @@ const Sell = () => {
     colors: [],
     features: [],
     inventory_count: 1,
+
     status: 'draft',
-    generate3D: false // Add checkbox state for 3D model generation
-  });  const [uploadFiles, setUploadFiles] = useState({
+    // Add checkbox state for 3D model generation
+    generate3D: false
+  });
+  
+
+  // File uploads state
+  const [uploadFiles, setUploadFiles] = useState({
     images: [],
     video: null
   });
@@ -64,16 +71,16 @@ const Sell = () => {
       fetchCategories();
     }
   }, [user]);
-
   useEffect(() => {
     if (activeTab === 'listings') {
       fetchListings();
     } else if (activeTab === 'analytics') {
       fetchAnalytics();
-    }    // Also fetch recommendations when dashboard is active or component mounts
+    }    // Also fetch data when dashboard is active or component mounts
     if (activeTab === 'dashboard') {
         fetchRecommendations();
         fetchReconstructionJobs();
+        fetchListings(); // Fetch listings for top performing products section
     }
   }, [activeTab]);
 
@@ -108,8 +115,11 @@ const Sell = () => {
     }
   };
 
-  const fetchAnalytics = async (options = {}) => { // Added options to allow period selection
-    const { period = '30' } = options; // Default to 30 days
+
+  // Added options to allow period selection
+  const fetchAnalytics = async (options = {}) => {
+    // Default to 30 days
+    const { period = '30' } = options;
     try {
       setLoading(true);
       const response = await apiService.getVendorDetailedAnalytics(period); // Pass period to API service
@@ -217,11 +227,14 @@ const Sell = () => {
       const furnitureId = furnitureResponse.data.id;
 
       // Upload images
+
       if (uploadFiles.images.length > 0) {
         for (const image of uploadFiles.images) {
           await apiService.uploadMedia(image, furnitureId, 'image');
         }
-      }      // Upload video and handle 3D model generation
+      }
+
+      // Upload video and handle 3D model generation
       if (uploadFiles.video) {
         const videoResponse = await apiService.uploadMedia(uploadFiles.video, furnitureId, 'video');
         if (videoResponse.success) {
@@ -323,19 +336,17 @@ const Sell = () => {
   const formatNumber = (num) => {
     return new Intl.NumberFormat('en-US').format(num);
   };
-
   const tabs = [
-    { id: 'dashboard', name: 'Dashboard' },
+    { id: 'dashboard', name: 'Overview' },
     { id: 'listings', name: 'My Listings' },
     { id: 'analytics', name: 'Analytics' },
     { id: 'upload', name: 'Add New Product' }
   ];
-
   const getStatsData = () => {
     if (!dashboardStats) return [];
     return [
       {
-        label: "Total Listings",
+        label: "Total Products",
         value: formatNumber(dashboardStats.totalListings),
         icon: CubeIcon,
         change: "+12%",
@@ -349,58 +360,55 @@ const Sell = () => {
         isPositive: true
       },
       {
-        label: "Sales This Month",
-        value: formatNumber(dashboardStats.salesThisMonth),
+        label: "Total Revenue",
+        value: formatCurrency(dashboardStats.revenue),
         icon: ShoppingCartIcon,
-        change: "+8%",
+        change: "+15%",
         isPositive: true
       },
       {
-        label: "Revenue",
-        value: formatCurrency(dashboardStats.revenue),
-        icon: ChartBarIcon,
-        change: "+15%",
+        label: "Average Rating",
+        value: dashboardStats.averageRating ? dashboardStats.averageRating.toFixed(1) : "0.0",
+        icon: HeartIcon,
+        change: "+0.2",
         isPositive: true
       }
     ];
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#b6cacb]/10 to-white">
-      {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-[#b6cacb]/10 to-white">      {/* Header */}
       <section className="bg-gradient-to-r from-[#0c1825] via-[#2a5d93] to-[#209aaa] py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              Seller Dashboard
+          <div className="text-left">
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
+              My Dashboard
             </h1>
-            <p className="text-xl text-[#b6cacb] max-w-2xl mx-auto">
-              Manage your furniture listings and grow your business with 3D technology
+            <p className="text-xl text-[#b6cacb]">
+              Welcome back, {user?.name || 'Vendor'}!
             </p>
           </div>
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Navigation */}
-        <div className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-2 mb-8 shadow-lg">
-          <div className="flex space-x-1">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">        {/* Tab Navigation */}
+        <div className="border-b border-white/20 mb-8">
+          <nav className="flex space-x-8">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white shadow-lg'
-                    : 'text-[#2a5d93] hover:bg-[#29d4c5]/20'
+                    ? 'border-[#29d4c5] text-[#29d4c5]'
+                    : 'border-transparent text-[#2a5d93] hover:text-[#0c1825] hover:border-[#29d4c5]/30'
                 }`}
               >
                 {tab.name}
               </button>
             ))}
-          </div>
-        </div>
-        {/* Dashboard Tab */}
+          </nav>
+        </div>        {/* Overview Tab */}
         {activeTab === 'dashboard' && (
           <div className="space-y-8">
             {loading ? (
@@ -408,8 +416,7 @@ const Sell = () => {
                 <LoadingSpinner />
               </div>
             ) : (
-              <>
-                {/* Enhanced Stats Grid */}
+              <>                {/* Main Stats Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   {getStatsData().map((stat, index) => (
                     <motion.div
@@ -417,156 +424,82 @@ const Sell = () => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.6, delay: index * 0.1 }}
-                      className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] p-3 rounded-lg">
-                            <stat.icon className="h-6 w-6 text-white" />
-                          </div>
-                          <div className="ml-4">
-                            <p className="text-sm font-medium text-[#2a5d93]">{stat.label}</p>
-                            <p className="text-2xl font-bold text-[#0c1825]">{stat.value}</p>
-                          </div>
+                      className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg"
+                    >                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[#2a5d93] text-sm font-medium">{stat.label}</p>
+                          <p className="text-2xl font-bold text-[#0c1825]">{stat.value}</p>
                         </div>
-                        <div className={`flex items-center text-sm ${stat.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                          <ArrowTrendingUpIcon className={`h-4 w-4 mr-1 ${stat.isPositive ? '' : 'rotate-180'}`} />
-                          {stat.change}
+                        <div className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] p-3 rounded-lg">
+                          <stat.icon className="h-6 w-6 text-white" />
                         </div>
                       </div>
                     </motion.div>
                   ))}
+                </div>                {/* Two Column Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Status Breakdown - Left */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.4 }}
+                    className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg"
+                  >
+                    <h3 className="text-xl font-semibold text-[#0c1825] mb-6">Status Breakdown</h3>
+                    <div className="space-y-4">
+                      {dashboardStats && [
+                        { label: 'Active', count: dashboardStats.activeListings || 0, color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircleIcon },
+                        { label: 'Draft', count: dashboardStats.draftListings || 0, color: 'text-yellow-600', bgColor: 'bg-yellow-100', icon: ClockIcon },
+                        { label: 'Archived', count: dashboardStats.archivedListings || 0, color: 'text-gray-600', bgColor: 'bg-gray-100', icon: ExclamationTriangleIcon },
+                        { label: 'Out of Stock', count: dashboardStats.outOfStockListings || 0, color: 'text-red-600', bgColor: 'bg-red-100', icon: ExclamationTriangleIcon }
+                      ].map((status, index) => (
+                        <div key={status.label} className="flex items-center justify-between p-4 bg-white/40 backdrop-blur-sm border border-[#29d4c5]/10 rounded-lg hover:bg-white/60 transition-all duration-200">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${status.bgColor}`}>
+                              <status.icon className={`h-4 w-4 ${status.color}`} />
+                            </div>
+                            <span className="text-[#0c1825] font-medium">{status.label}</span>
+                          </div>
+                          <span className="text-[#2a5d93] font-semibold">{formatNumber(status.count)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>                  {/* Top Performing Products - Right */}
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.5 }}
+                    className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg"
+                  >
+                    <h3 className="text-xl font-semibold text-[#0c1825] mb-6">Top Performing Products</h3>                    <div className="space-y-4">
+                      {listings.slice(0, 4).map((item, index) => (
+                        <div key={item.id} className="flex items-center justify-between p-4 bg-white/40 backdrop-blur-sm border border-[#29d4c5]/10 rounded-lg hover:bg-white/60 transition-all duration-200">
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-[#29d4c5] to-[#209aaa] rounded-lg text-white font-bold text-lg">
+                              {index + 1}
+                            </div>                            <div className="flex-1">
+                              <p className="text-[#0c1825] font-medium text-base line-clamp-1">{item.title}</p>
+                              <p className="text-xs text-[#2a5d93]/60">ID: {item.id}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[#29d4c5] font-semibold text-base">{item.view_count || 0} views</span>
+                          </div>
+                        </div>
+                      ))}
+                      {listings.length === 0 && (
+                        <div className="text-center py-8">
+                          <CubeIcon className="h-12 w-12 text-[#2a5d93] mx-auto mb-3" />
+                          <p className="text-[#2a5d93] font-medium">No products yet</p>
+                          <p className="text-sm text-[#2a5d93]/70 mt-1">Add your first listing to see performance data</p>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
                 </div>
 
-                {/* Additional KPI Cards */}
-                {dashboardStats && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.6, delay: 0.4 }}
-                      className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg"
-                    >
-                      <div className="flex items-center">
-                        <div className="bg-gradient-to-r from-[#209aaa] to-[#2a5d93] p-3 rounded-lg">
-                          <CheckCircleIcon className="h-6 w-6 text-white" />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-[#2a5d93]">Active Listings</p>
-                          <p className="text-2xl font-bold text-[#0c1825]">{formatNumber(dashboardStats.activeListings)}</p>
-                        </div>
-                      </div>
-                    </motion.div>
-
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.6, delay: 0.5 }}
-                      className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg"
-                    >
-                      <div className="flex items-center">
-                        <div className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] p-3 rounded-lg">
-                          <ClockIcon className="h-6 w-6 text-white" />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-[#2a5d93]">Pending 3D Models</p>
-                          <p className="text-2xl font-bold text-[#0c1825]">{formatNumber(dashboardStats.pending3DModels)}</p>
-                        </div>
-                      </div>
-                    </motion.div>
-
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.6, delay: 0.6 }}
-                      className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg"
-                    >
-                      <div className="flex items-center">
-                        <div className="bg-gradient-to-r from-[#2a5d93] to-[#0c1825] p-3 rounded-lg">
-                          <EyeIcon className="h-6 w-6 text-white" />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-[#2a5d93]">Views (30 days)</p>
-                          <p className="text-2xl font-bold text-[#0c1825]">{formatNumber(dashboardStats.viewsLast30Days)}</p>
-                        </div>
-                      </div>
-                    </motion.div>
-
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.6, delay: 0.7 }}
-                      className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg"
-                    >
-                      <div className="flex items-center">
-                        <div className="bg-gradient-to-r from-[#29d4c5] to-[#2a5d93] p-3 rounded-lg">
-                          <ChartBarIcon className="h-6 w-6 text-white" />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-[#2a5d93]">Conversion Rate</p>
-                          <p className="text-2xl font-bold text-[#0c1825]">{dashboardStats.conversionRate}%</p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </div>
-                )}
-
-                {/* Quick Actions */}
-                <div className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg">
-                  <h3 className="text-xl font-bold text-[#0c1825] mb-4">Quick Actions</h3>
-                  <div className="flex flex-wrap gap-4">
-                    <button
-                      onClick={() => setActiveTab('upload')}
-                      className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center space-x-2"
-                    >
-                      <PlusIcon className="h-5 w-5" />
-                      <span>Add New Item</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('analytics')}
-                      className="bg-white/80 border border-[#29d4c5]/30 text-[#0c1825] px-6 py-3 rounded-lg hover:bg-[#29d4c5]/20 transition-colors flex items-center space-x-2"
-                    >
-                      <ChartBarIcon className="h-5 w-5" />
-                      <span>View Analytics</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('listings')}
-                      className="bg-white/80 border border-[#29d4c5]/30 text-[#0c1825] px-6 py-3 rounded-lg hover:bg-[#29d4c5]/20 transition-colors flex items-center space-x-2"
-                    >
-                      <CubeIcon className="h-5 w-5" />
-                      <span>Manage Inventory</span>
-                    </button>
-                  </div>
-                </div>                {/* Recommendations Section */}
-                {recommendations && (
-                  <div className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg">
-                    <h3 className="text-xl font-bold text-[#0c1825] mb-4">Recommendations</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="text-lg font-semibold text-[#2a5d93] mb-3">Trending Categories</h4>
-                        <div className="space-y-2">
-                          {recommendations.trendingCategories.slice(0, 3).map((category, index) => (
-                            <div key={`${category.category_id}-${index}`} className="flex items-center justify-between p-2 bg-white/50 rounded-lg">
-                              <span className="text-[#0c1825]">{category.name}</span>
-                              <span className="text-sm text-[#29d4c5] font-semibold">{formatNumber(category.totalViews)} views</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-semibold text-[#2a5d93] mb-3">Optimization Tips</h4>
-                        <div className="space-y-2">
-                          {recommendations.recommendations.slice(0, 3).map((tip, index) => (
-                            <div key={index} className="flex items-start p-2 bg-white/50 rounded-lg">
-                              <CheckCircleIcon className="h-5 w-5 text-[#29d4c5] mr-2 mt-0.5 flex-shrink-0" />
-                              <span className="text-sm text-[#0c1825]">{tip}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                      
+            
 
                 {/* 3D Reconstruction Jobs Section */}
                 <div className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg">
@@ -606,13 +539,11 @@ const Sell = () => {
                                   job.status === 'processing' ? 'bg-[#29d4c5] animate-pulse' :
                                   job.status === 'failed' ? 'bg-red-500' : 'bg-[#b6cacb]'
                                 }`} />
-                                <div>
-                                  <h4 className="font-medium text-[#0c1825] truncate max-w-xs">
-                                    {job.furnitureTitle}
-                                  </h4>
-                                  <p className="text-sm text-[#2a5d93]">
-                                    Started {new Date(job.startedAt).toLocaleDateString()} at{' '}
-                                    {new Date(job.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                <div>                                  <h4 className="font-medium text-[#0c1825] truncate max-w-xs">
+                                    {job.furniture_title || job.furnitureTitle || job.title || 'Unknown Item'}
+                                  </h4>                                  <p className="text-sm text-[#2a5d93]">
+                                    Started {new Date(job.created_at || job.startedAt).toLocaleDateString()} at{' '}
+                                    {new Date(job.created_at || job.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                   </p>
                                 </div>
                               </div>
@@ -628,10 +559,9 @@ const Sell = () => {
                                       className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] h-2 rounded-full transition-all duration-300"
                                       style={{ width: `${job.progress}%` }}
                                     />
-                                  </div>
-                                  {job.estimatedCompletionTime && (
+                                  </div>                                  {(job.estimatedCompletionTime || job.estimated_completion_time) && (
                                     <p className="text-xs text-[#b6cacb] mt-1">
-                                      ETA: {new Date(job.estimatedCompletionTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      ETA: {new Date(job.estimatedCompletionTime || job.estimated_completion_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                   )}
                                 </div>
@@ -658,7 +588,7 @@ const Sell = () => {
                               <span className={`text-xs font-medium px-2 py-1 rounded-full ${
                                 job.status === 'completed' ? 'bg-green-100 text-green-800' :
                                 job.status === 'processing' ? 'bg-[#29d4c5]/20 text-[#209aaa]' :
-                                job.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                                job.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
                               }`}>
                                 {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
                               </span>
@@ -673,6 +603,8 @@ const Sell = () => {
             )}
           </div>
         )}
+
+
         {/* Listings Tab */}
         {activeTab === 'listings' && (
           <div className="space-y-6">

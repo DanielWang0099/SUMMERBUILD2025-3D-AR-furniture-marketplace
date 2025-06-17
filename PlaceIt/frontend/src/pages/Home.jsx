@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useApp } from '../context/AppContext';
 import { 
   CubeIcon, 
   CameraIcon, 
@@ -12,6 +13,31 @@ import {
 
 const Home = () => {
   const [playingVideo, setPlayingVideo] = useState(false);
+  const { isAuthenticated } = useApp();
+  const navigate = useNavigate();  const handleNavigation = (path) => {
+    if (!isAuthenticated) {
+      // Check if we're already at the top (within 100px threshold)
+      const isNearTop = window.scrollY <= 100;
+      
+      if (isNearTop) {
+        // No need to scroll, redirect instantly
+        navigate('/login');
+      } else {
+        // Smooth scroll to top before navigating to login
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        
+        // Shorter delay since buttons are higher up on the page
+        setTimeout(() => {
+          navigate('/login');
+        }, 400);
+      }
+    } else {
+      navigate(path);
+    }
+  };
 
   const features = [
     {
@@ -82,22 +108,28 @@ const Home = () => {
             <p className="text-xl md:text-2xl text-[#b6cacb] mb-8 max-w-3xl mx-auto">
               Experience the future of furniture shopping with 3D models and augmented reality. 
               No guesswork. No tape measures. Just point your phone and watch your dream space come to life.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link 
-                to="/browse"
+            </p>            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button 
+                onClick={() => handleNavigation('/browse')}
                 className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-200 flex items-center justify-center space-x-2"
               >
                 <ShoppingBagIcon className="h-6 w-6" />
                 <span>Start Shopping</span>
-              </Link>
-              <Link 
-                to="/sell"
+              </button>
+              <button 
+                onClick={() => handleNavigation('/vendor-dashboard')}
+                className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-200 flex items-center justify-center space-x-2"
+              >
+                <ShoppingBagIcon className="h-6 w-6" />
+                <span>Vendor Dashboard</span>
+              </button>
+              <button 
+                onClick={() => handleNavigation('/sell')}
                 className="bg-white/20 backdrop-blur-sm border border-white/30 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/30 transition-all duration-200 flex items-center justify-center space-x-2"
               >
                 <CubeIcon className="h-6 w-6" />
                 <span>Start Selling</span>
-              </Link>
+              </button>
             </div>
           </motion.div>
         </div>
@@ -220,8 +252,7 @@ const Home = () => {
             </h2>
             <p className="text-xl text-[#b6cacb] mb-8 max-w-2xl mx-auto">
               Join PlaceIt! today and discover the future of furniture shopping and selling.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            </p>            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 
                 to="/register"
                 className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-200 flex items-center justify-center space-x-2"
@@ -229,12 +260,12 @@ const Home = () => {
                 <span>Get Started Free</span>
                 <ArrowRightIcon className="h-5 w-5" />
               </Link>
-              <Link 
-                to="/browse"
+              <button 
+                onClick={() => handleNavigation('/browse')}
                 className="bg-white/20 backdrop-blur-sm border border-white/30 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/30 transition-all duration-200"
               >
                 Explore Marketplace
-              </Link>
+              </button>
             </div>
           </motion.div>
         </div>
