@@ -117,13 +117,6 @@ const Home = () => {
                 <span>Start Shopping</span>
               </button>
               <button 
-                onClick={() => handleNavigation('/vendor-dashboard')}
-                className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-200 flex items-center justify-center space-x-2"
-              >
-                <ShoppingBagIcon className="h-6 w-6" />
-                <span>Vendor Dashboard</span>
-              </button>
-              <button 
                 onClick={() => handleNavigation('/sell')}
                 className="bg-white/20 backdrop-blur-sm border border-white/30 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/30 transition-all duration-200 flex items-center justify-center space-x-2"
               >

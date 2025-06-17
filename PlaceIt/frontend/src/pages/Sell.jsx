@@ -392,7 +392,7 @@ const Sell = () => {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">        {/* Tab Navigation */}
-        <div className="border-b border-white/20 mb-8">
+        <div className="border-b border-[#2a5d93]/20 mb-8">
           <nav className="flex space-x-8">
             {tabs.map((tab) => (
               <button
