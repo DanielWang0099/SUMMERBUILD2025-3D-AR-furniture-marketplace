@@ -125,7 +125,6 @@ app.get('/', (req, res) => {
         'GET /api/vendor/dashboard - Get user dashboard data',
         'GET /api/vendor/furniture - Get user furniture',
         'GET /api/vendor/analytics - Get user analytics',
-        'POST /api/vendor/furniture/:id/generate-3d - Generate 3D model'
       ],
       uploads: [
         'POST /api/uploads/media - Upload media files'
@@ -689,42 +688,207 @@ app.put('/api/furniture/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Helper: Extract Supabase storage path from URL using bucket name
+const extractStoragePath = (url, bucketName) => {
+  if (!url) return null;
+  try {
+    const path = new URL(url).pathname;
+    const regex = new RegExp(`/${bucketName}/(.+)$`);
+    const match = path.match(regex);
+    return match ? match[1] : null;
+  } catch (e) {
+    console.error("Failed to parse URL:", url, e);
+    return null;
+  }
+};
+
 // Delete furniture (owner only)
 app.delete('/api/furniture/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Verify ownership
+
     const { data: existingFurniture, error: checkError } = await supabase
       .from('furniture')
-      .select('vendor_id')
+      .select('vendor_id, title')
       .eq('id', id)
       .single();
-      
+
     if (checkError || !existingFurniture) {
       return res.status(404).json({ success: false, message: 'Furniture not found' });
     }
-    
+
     if (existingFurniture.vendor_id !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Permission denied' });
     }
-    
-    const { error } = await supabase
-      .from('furniture')
-      .delete()
-      .eq('id', id);
-      
-    if (error) {
-      return res.status(400).json({ success: false, message: error.message });
+
+    console.log(`Starting deletion of furniture: "${existingFurniture.title}" (ID: ${id}) by user: ${req.user.id}`);
+
+    // Step 1: Get all media assets
+    const { data: mediaAssets, error: mediaError } = await supabase
+      .from('media_assets')
+      .select('id, url, filename, type')
+      .eq('furniture_id', id);
+
+    if (mediaError) {
+      console.error('Error fetching media assets:', mediaError);
+      return res.status(500).json({ success: false, message: 'Failed to fetch media assets' });
     }
-    
-    res.json({
+
+    // Step 2: Delete files from storage
+    const actuallyDeletedFiles = [];
+    const storageErrors = [];
+    const skippedFiles = [];
+
+    // Process individual media assets
+    for (const asset of mediaAssets || []) {
+      try {
+        let bucketName;
+        let filePath;
+
+        if (asset.type === 'model_3d') {
+          bucketName = 'furniture-models';
+          filePath = extractStoragePath(asset.url, bucketName) || `${id}/${asset.filename}`;
+        } else if (['image', 'video', 'thumbnail'].includes(asset.type)) {
+          bucketName = 'furniture-media';
+          filePath = extractStoragePath(asset.url, bucketName) || `media/${req.user.id}/${asset.filename}`;
+        }
+
+        if (bucketName && filePath) {
+          console.log(`Attempting to delete: [${bucketName}] ${filePath}`);
+
+          // Check if file exists
+          const folderPrefix = filePath.split('/').slice(0, -1).join('/');
+          const { data: existingFiles } = await supabase.storage.from(bucketName).list(folderPrefix);
+          
+          const exists = existingFiles?.some(f => f.name == asset.filename);
+          if (!exists) {
+            console.warn(`File not found: ${filePath} (skipped)`);
+            skippedFiles.push({ bucket: bucketName, path: filePath, reason: 'File not found' });
+            continue;
+          }
+
+          // Attempt deletion
+          const { error: deleteFileError } = await supabase.storage.from(bucketName).remove([filePath]);
+
+          if (deleteFileError) {
+            console.error(`Error deleting ${filePath}:`, deleteFileError);
+            storageErrors.push(`Failed to delete ${filePath}: ${deleteFileError.message}`);
+          } else {
+            console.log(`Successfully deleted: [${bucketName}] ${filePath}`);
+            actuallyDeletedFiles.push({ bucket: bucketName, path: filePath });
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing asset ${asset.id}:`, error);
+        storageErrors.push(`Asset ${asset.id}: ${error.message}`);
+      }
+    }
+
+
+    // Step 3: Delete database records in correct order
+    const deletionErrors = [];
+
+    try {
+      // Delete in order to handle foreign key constraints
+      const tablesToClean = [
+        { table: 'ar_interactions', field: 'furniture_id' },
+        { table: 'vendor_analytics', field: 'furniture_id' },
+        { table: 'order_items', field: 'furniture_id' },
+        { table: 'cart_items', field: 'furniture_id' },
+        { table: 'favorites', field: 'furniture_id' },
+        { table: 'reviews', field: 'furniture_id' },
+        { table: 'model_generation_jobs', field: 'furniture_id' },
+        { table: 'media_assets', field: 'furniture_id' }
+      ];
+
+      for (const { table, field } of tablesToClean) {
+        const { error } = await supabase
+          .from(table)
+          .delete()
+          .eq(field, id);
+        
+        if (error) {
+          console.error(`Error deleting from ${table}:`, error);
+          deletionErrors.push(`${table}: ${error.message}`);
+        }
+      }
+
+      // Finally, delete the furniture record
+      const { error: furnitureError } = await supabase
+        .from('furniture')
+        .delete()
+        .eq('id', id);
+        
+      if (furnitureError) {
+        console.error('Error deleting furniture:', furnitureError);
+        deletionErrors.push(`Furniture: ${furnitureError.message}`);
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Failed to delete furniture record',
+          error: furnitureError.message 
+        });
+      }
+
+    } catch (error) {
+      console.error('Database deletion error:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to delete database records',
+        error: error.message 
+      });
+    }
+
+    // Step 6: Prepare detailed response
+    const response = {
       success: true,
-      message: 'Furniture deleted successfully'
+      message: 'Furniture deleted successfully',
+      cleanup: {
+        filesActuallyDeleted: actuallyDeletedFiles.length,
+        filesSkipped: skippedFiles.length,
+        mediaAssetsProcessed: mediaAssets?.length || 0,
+        details: {
+          deletedFiles: actuallyDeletedFiles,
+          skippedFiles: skippedFiles.length > 0 ? skippedFiles : undefined,
+          storageErrors: storageErrors.length > 0 ? storageErrors : undefined,
+          databaseErrors: deletionErrors.length > 0 ? deletionErrors : undefined
+        }
+      }
+    };
+
+    // Log completion with accurate information
+    console.log(`Successfully deleted furniture "${existingFurniture.title}" (ID: ${id})`);
+    console.log(`Cleanup summary:`, {
+      filesActuallyDeleted: actuallyDeletedFiles.length,
+      filesSkipped: skippedFiles.length,
+      storageErrors: storageErrors.length,
+      databaseErrors: deletionErrors.length
     });
+
+    // Return appropriate response based on errors
+    if (storageErrors.length > 0 || deletionErrors.length > 0) {
+      return res.status(207).json({
+        ...response,
+        message: 'Furniture deleted with some cleanup warnings',
+        warnings: [...storageErrors, ...deletionErrors]
+      });
+    }
+
+    res.json(response);
+
   } catch (error) {
     console.error('Furniture deletion error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error('Error details:', {
+      furnitureId: req.params.id,
+      userId: req.user?.id,
+      timestamp: new Date().toISOString(),
+      errorMessage: error.message,
+      errorStack: error.stack
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error during furniture deletion',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -1593,55 +1757,7 @@ app.get('/api/vendor/analytics', requireAuth, async (req, res) => {
   }
 });
 
-// Generate 3D model from video
-app.post('/api/vendor/furniture/:id/generate-3d', requireAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { video_url } = req.body;
-    
-    // Verify ownership
-    const { data: furniture, error: checkError } = await supabase
-      .from('furniture')
-      .select('vendor_id')
-      .eq('id', id)
-      .single();
-      
-    if (checkError || !furniture) {
-      return res.status(404).json({ success: false, message: 'Furniture not found' });
-    }
-    
-    if (furniture.vendor_id !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'Permission denied' });
-    }
-    
-    // Create 3D model generation job
-    const { data: job, error } = await supabase
-      .from('model_generation_jobs')
-      .insert([{
-        furniture_id: id,
-        video_url,
-        status: 'pending'
-      }])
-      .select()
-      .single();
-      
-    if (error) {
-      return res.status(400).json({ success: false, message: error.message });
-    }
-    
-    // TODO: Trigger actual 3D model generation process
-    // This would typically involve sending a job to a queue or calling an external service
-    
-    res.json({
-      success: true,
-      message: '3D model generation started',
-      data: job
-    });
-  } catch (error) {
-    console.error('3D generation error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
-  }
-});
+
 
 // ===========================================
 // UPLOAD ROUTES
@@ -1783,30 +1899,198 @@ app.listen(port, () => {
   console.log(`API documentation available at http://localhost:${port}`);
 });
 
-app.post('/api/photogrammetry/reconstruct', async (req, res) => {
+app.post('/api/photogrammetry/reconstruct', requireAuth, async (req, res) => {
   try {
     const { furnitureId } = req.body;
 
-    // Check if there is a furnitureId
+    // Check if there is a furnitureId and validate it
     if (!furnitureId) {
       return res.status(400).json({ success: false, message: 'Furniture ID is required' });
     }
-    // Check if the furniture exists
-    const { data: furniture, error: checkError } = await supabase
-      .from('furniture')
-      .select('id, vendor_id')
+
+    // Basic validation for furnitureId format (assuming it should be a number or UUID)
+    if (typeof furnitureId !== 'number' && typeof furnitureId !== 'string') {
+      return res.status(400).json({ success: false, message: 'Invalid furniture ID format' });
+    }
+    
+    // Check if the furniture exists and belongs to the authenticated user
+    const { data: furniture, error: checkError } = await supabase      .from('furniture')
+      .select('id, vendor_id, title')
       .eq('id', furnitureId)
+      .eq('vendor_id', req.user.id) // Ensure user owns the furniture
       .single();
 
     if (checkError || !furniture) {
-      return res.status(404).json({ success: false, message: 'Furniture not found in database' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Furniture not found or you do not have permission to access it' 
+      });
     }
     
-    await reconstructFurniture(furnitureId);
-    res.json({ success: true, message: 'Reconstruction started' });
-  } catch (error) {
+    // Get the video URL for this furniture
+    const { data: videoAsset, error: videoError } = await supabase
+      .from('media_assets')
+      .select('url')
+      .eq('furniture_id', furnitureId)
+      .eq('type', 'video')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (videoError || !videoAsset) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No video found for this furniture item' 
+      });
+    }    // Check if there's already a pending or processing job for this furniture
+    const { data: existingJob, error: jobCheckError } = await supabase
+      .from('model_generation_jobs')
+      .select('id, status, video_asset_id')
+      .eq('furniture_id', furnitureId)
+      .in('status', ['pending', 'processing'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!jobCheckError && existingJob) {
+      return res.status(409).json({ 
+        success: false, 
+        message: 'A 3D reconstruction job is already in progress for this furniture item',
+        existingJobId: existingJob.id
+      });
+    }
+
+    // Create a new reconstruction job
+    const { data: newJob, error: createJobError } = await supabase
+      .from('model_generation_jobs')
+      .insert([{
+        furniture_id: furnitureId,
+        video_url: videoAsset.url,
+        status: 'pending',
+        progress_percentage: 0
+      }])
+      .select()
+      .single();
+
+    if (createJobError) {
+      console.error('Error creating reconstruction job:', createJobError);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to create reconstruction job' 
+      });
+    }
+
+    console.log(`Created 3D reconstruction job for furniture: "${furniture.title}" (ID: ${furnitureId}) by user: ${req.user.id}`);
+      // Start the reconstruction process (this would typically be async)
+    try {
+      await reconstructFurniture(furnitureId);
+    } catch (reconstructError) {
+      console.error('Error starting reconstruction:', reconstructError);
+      // Update job status to failed
+      await supabase
+        .from('model_generation_jobs')
+        .update({ 
+          status: 'failed', 
+          error_message: 'Failed to start reconstruction process',
+          error_code: 'RECONSTRUCTION_START_ERROR'
+        })
+        .eq('id', newJob.id);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: '3D model reconstruction started successfully',
+      furnitureId: furnitureId,
+      furnitureTitle: furniture.title,
+      jobId: newJob.id
+    });} catch (error) {
     console.error('Reconstruction error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error('Error details:', {
+      furnitureId: req.body.furnitureId,
+      userId: req.user?.id,
+      timestamp: new Date().toISOString(),
+      errorMessage: error.message,
+      errorStack: error.stack
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error during 3D reconstruction',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Get reconstruction jobs for the current user
+app.get('/api/vendor/reconstruction-jobs', requireAuth, async (req, res) => {
+  try {
+    // Get actual reconstruction jobs from the database
+    const { data: reconstructionJobs, error } = await supabase
+      .from('model_generation_jobs')
+      .select(`
+        id,
+        furniture_id,
+        video_url,
+        output_model_url,
+        status,
+        progress_percentage,
+        processing_time_seconds,
+        error_message,
+        error_code,
+        created_at,
+        updated_at,
+        furniture:furniture_id (
+          id,
+          title,
+          vendor_id
+        )
+      `)
+      .eq('furniture.vendor_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching reconstruction jobs:', error);
+      return res.status(500).json({ success: false, message: 'Failed to fetch reconstruction jobs' });
+    }
+
+    // Transform the data to match the expected frontend format
+    const formattedJobs = (reconstructionJobs || []).map(job => {
+      // Calculate estimated completion time for processing jobs
+      let estimatedCompletionTime = null;
+      if (job.status === 'processing') {
+        const progressRemaining = 100 - (job.progress_percentage || 0);
+        const estimatedMinutesRemaining = Math.max(1, Math.floor(progressRemaining / 10)); // Rough estimate
+        estimatedCompletionTime = new Date(Date.now() + estimatedMinutesRemaining * 60000).toISOString();
+      }
+
+      return {
+        id: job.id,
+        furnitureId: job.furniture_id,
+        furnitureTitle: job.furniture?.title || 'Unknown Item',
+        status: job.status,
+        progress: job.progress_percentage || 0,
+        startedAt: job.created_at,
+        updatedAt: job.updated_at,
+        estimatedCompletionTime,
+        videoUrl: job.video_url,
+        modelUrl: job.output_model_url,
+        processingTimeSeconds: job.processing_time_seconds,
+        error: job.error_message || (job.status === 'failed' ? 'Processing failed' : null),
+        errorCode: job.error_code
+      };
+    });
+
+    res.json({
+      success: true,
+      data: formattedJobs
+    });
+
+  } catch (error) {
+    console.error('Get reconstruction jobs error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

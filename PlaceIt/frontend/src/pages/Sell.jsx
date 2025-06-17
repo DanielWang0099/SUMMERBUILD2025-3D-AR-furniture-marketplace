@@ -27,8 +27,7 @@ const Sell = () => {
   const [dashboardStats, setDashboardStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [listings, setListings] = useState([]);
-  const [categories, setCategories] = useState([]);
-  // Removed local toast state and setToast setter as it will be managed globally
+  const [categories, setCategories] = useState([]);  // Removed local toast state and setToast setter as it will be managed globally
   // const [toast, setToast] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
@@ -41,12 +40,13 @@ const Sell = () => {
     colors: [],
     features: [],
     inventory_count: 1,
-    status: 'draft'
-  });
-  const [uploadFiles, setUploadFiles] = useState({
+    status: 'draft',
+    generate3D: false // Add checkbox state for 3D model generation
+  });  const [uploadFiles, setUploadFiles] = useState({
     images: [],
     video: null
   });
+  const [reconstructionJobs, setReconstructionJobs] = useState([]);
   const [recommendations, setRecommendations] = useState(null);
 
   // Destructure showToast from useApp() context
@@ -70,11 +70,27 @@ const Sell = () => {
       fetchListings();
     } else if (activeTab === 'analytics') {
       fetchAnalytics();
-    }
-    // Also fetch recommendations when dashboard is active or component mounts
+    }    // Also fetch recommendations when dashboard is active or component mounts
     if (activeTab === 'dashboard') {
         fetchRecommendations();
+        fetchReconstructionJobs();
     }
+  }, [activeTab]);
+
+  // Auto-refresh reconstruction jobs every 30 seconds when dashboard is active
+  useEffect(() => {
+    let interval = null;
+    if (activeTab === 'dashboard') {
+      interval = setInterval(() => {
+        fetchReconstructionJobs();
+      }, 30000); // Refresh every 30 seconds
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, [activeTab]);
 
 
@@ -143,6 +159,17 @@ const Sell = () => {
     }
   };
 
+  const fetchReconstructionJobs = async () => {
+    try {
+      const response = await apiService.getReconstructionJobs();
+      if (response.success) {
+        setReconstructionJobs(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load reconstruction jobs');
+    }
+  };
+
   const handleInputChange = useCallback((field, value) => {
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
@@ -194,20 +221,48 @@ const Sell = () => {
         for (const image of uploadFiles.images) {
           await apiService.uploadMedia(image, furnitureId, 'image');
         }
-      }
-
-      // Upload video for 3D generation
+      }      // Upload video and handle 3D model generation
       if (uploadFiles.video) {
         const videoResponse = await apiService.uploadMedia(uploadFiles.video, furnitureId, 'video');
         if (videoResponse.success) {
-          // Trigger 3D model generation
-          await apiService.generate3DModel(furnitureId, videoResponse.data.url);
+          // Check if user wants 3D model generated
+          if (formData.generate3D) {
+            try {
+              // Call the new photogrammetry/reconstruct endpoint
+              const reconstructResponse = await apiService.reconstructFurniture(furnitureId);
+              if (reconstructResponse.success) {
+                showToast({ 
+                  message: '3D model generation started! Check the dashboard to monitor progress.', 
+                  type: 'success' 
+                });
+              } else {
+                showToast({ 
+                  message: 'Failed to start 3D model generation: ' + reconstructResponse.message, 
+                  type: 'warning' 
+                });
+              }
+            } catch (error) {
+              console.error('3D reconstruction error:', error);
+              showToast({ 
+                message: 'Failed to start 3D model generation. Video was uploaded successfully.', 
+                type: 'warning' 
+              });
+            }
+          } else {
+            showToast({ 
+              message: 'Video uploaded successfully!', 
+              type: 'success' 
+            });
+          }
+        } else {
+          showToast({ 
+            message: 'Failed to upload video: ' + videoResponse.message, 
+            type: 'warning' 
+          });
         }
       }
 
-      showToast({ message: 'Listing created successfully!', type: 'success' });
-
-      // Reset form and state
+      showToast({ message: 'Listing created successfully!', type: 'success' });// Reset form and state
       setFormData({
         title: '',
         price: '',
@@ -219,12 +274,14 @@ const Sell = () => {
         colors: [],
         features: [],
         inventory_count: 1,
-        status: 'draft'
-      });
-      setUploadFiles({ images: [], video: null });
-
-      // Update data and navigate to listings
+        status: 'draft',
+        generate3D: false
+      });        setUploadFiles({ images: [], video: null });      // Update data and navigate to listings
       await fetchListings();
+      // Also refresh reconstruction jobs if user added a 3D generation
+      if (formData.generate3D) {
+        await fetchReconstructionJobs();
+      }
       setActiveTab('listings');
 
     } catch (error) {
@@ -480,9 +537,7 @@ const Sell = () => {
                       <span>Manage Inventory</span>
                     </button>
                   </div>
-                </div>
-
-                {/* Recommendations Section */}
+                </div>                {/* Recommendations Section */}
                 {recommendations && (
                   <div className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg">
                     <h3 className="text-xl font-bold text-[#0c1825] mb-4">Recommendations</h3>
@@ -512,6 +567,108 @@ const Sell = () => {
                     </div>
                   </div>
                 )}
+
+                {/* 3D Reconstruction Jobs Section */}
+                <div className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold text-[#0c1825] flex items-center space-x-2">
+                      <CubeIcon className="h-6 w-6 text-[#209aaa]" />
+                      <span>3D Model Generation</span>
+                    </h3>
+                    <button
+                      onClick={fetchReconstructionJobs}
+                      className="text-sm text-[#29d4c5] hover:text-[#209aaa] transition-colors"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  
+                  {reconstructionJobs.length === 0 ? (
+                    <div className="text-center py-8">
+                      <CubeIcon className="h-12 w-12 text-[#b6cacb] mx-auto mb-3" />
+                      <p className="text-[#2a5d93]">No 3D reconstruction jobs yet</p>
+                      <p className="text-sm text-[#b6cacb] mt-1">Upload videos when creating listings to generate 3D models</p>
+                    </div>
+                  ) : (
+                    <div className="max-h-80 overflow-y-auto space-y-3">
+                      {reconstructionJobs.map((job) => (
+                        <motion.div
+                          key={job.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-gradient-to-r from-white/80 to-white/60 border border-[#29d4c5]/10 rounded-lg p-4 hover:shadow-md transition-all duration-200"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3">
+                                <div className={`w-3 h-3 rounded-full ${
+                                  job.status === 'completed' ? 'bg-green-500' :
+                                  job.status === 'processing' ? 'bg-[#29d4c5] animate-pulse' :
+                                  job.status === 'failed' ? 'bg-red-500' : 'bg-[#b6cacb]'
+                                }`} />
+                                <div>
+                                  <h4 className="font-medium text-[#0c1825] truncate max-w-xs">
+                                    {job.furnitureTitle}
+                                  </h4>
+                                  <p className="text-sm text-[#2a5d93]">
+                                    Started {new Date(job.startedAt).toLocaleDateString()} at{' '}
+                                    {new Date(job.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {job.status === 'processing' && (
+                                <div className="mt-3">
+                                  <div className="flex items-center justify-between text-xs text-[#2a5d93] mb-1">
+                                    <span>Progress</span>
+                                    <span>{job.progress}%</span>
+                                  </div>
+                                  <div className="w-full bg-[#b6cacb]/30 rounded-full h-2">
+                                    <div 
+                                      className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] h-2 rounded-full transition-all duration-300"
+                                      style={{ width: `${job.progress}%` }}
+                                    />
+                                  </div>
+                                  {job.estimatedCompletionTime && (
+                                    <p className="text-xs text-[#b6cacb] mt-1">
+                                      ETA: {new Date(job.estimatedCompletionTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {job.status === 'failed' && job.error && (
+                                <div className="mt-2 flex items-start space-x-2">
+                                  <ExclamationTriangleIcon className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                                  <p className="text-xs text-red-600">{job.error}</p>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="ml-4 flex items-center space-x-2">
+                              {job.status === 'completed' && (
+                                <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                              )}
+                              {job.status === 'processing' && (
+                                <ClockIcon className="h-5 w-5 text-[#29d4c5] animate-spin" />
+                              )}
+                              {job.status === 'failed' && (
+                                <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
+                              )}
+                              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                job.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                job.status === 'processing' ? 'bg-[#29d4c5]/20 text-[#209aaa]' :
+                                job.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                              </span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -636,8 +793,7 @@ const Sell = () => {
         )}
 
         {/* Upload Tab */}
-        {activeTab === 'upload' && (
-          <UploadItemForm
+        {activeTab === 'upload' && (          <UploadItemForm
             formData={formData}
             setFormData={setFormData}
             uploadFiles={uploadFiles}

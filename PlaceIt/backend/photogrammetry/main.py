@@ -74,6 +74,104 @@ def extract_frames(video_path, output_images_dir, fps):
     run_command(command)
     print(f"Frames extracted to: {output_images_dir}")
 
+def validate_colmap_output(workspace_path, min_points=100):
+    """
+    Validate that COLMAP produced a reasonable sparse reconstruction.
+    Handles both binary (.bin) and text (.txt) formats.
+    
+    Args:
+        workspace_path (str): COLMAP workspace path
+        min_points (int): Minimum number of 3D points expected
+    """
+    sparse_dir = os.path.join(workspace_path, 'sparse', '0')
+    
+    # Check for binary files first (COLMAP default), then text files
+    points3d_bin = os.path.join(sparse_dir, 'points3D.bin')
+    points3d_txt = os.path.join(sparse_dir, 'points3D.txt')
+    images_bin = os.path.join(sparse_dir, 'images.bin')
+    images_txt = os.path.join(sparse_dir, 'images.txt')
+    cameras_bin = os.path.join(sparse_dir, 'cameras.bin')
+    cameras_txt = os.path.join(sparse_dir, 'cameras.txt')
+    
+    # Determine which format is available
+    use_binary = False
+    if os.path.exists(points3d_bin) and os.path.exists(images_bin) and os.path.exists(cameras_bin):
+        use_binary = True
+        print("Found COLMAP binary format files")
+    elif os.path.exists(points3d_txt) and os.path.exists(images_txt) and os.path.exists(cameras_txt):
+        use_binary = False
+        print("Found COLMAP text format files")
+    else:
+        # List what files are actually present for debugging
+        available_files = []
+        for file in os.listdir(sparse_dir) if os.path.exists(sparse_dir) else []:
+            available_files.append(file)
+        
+        raise FileNotFoundError(
+            f"COLMAP sparse reconstruction files not found in {sparse_dir}. "
+            f"Expected either binary (.bin) or text (.txt) format. "
+            f"Available files: {available_files}"
+        )
+    
+    if use_binary:
+        # For binary files, we need to use COLMAP's model_converter to get readable info
+        # or we can just check if the files exist and have reasonable size
+        points3d_file = points3d_bin
+        images_file = images_bin
+        
+        # Basic validation: check file sizes (binary files should not be empty)
+        points_size = os.path.getsize(points3d_file)
+        images_size = os.path.getsize(images_file)
+        
+        if points_size < 100:  # Very small file suggests no/few points
+            raise ValueError(f"COLMAP points3D.bin file is too small ({points_size} bytes), "
+                           f"suggesting insufficient 3D points for reconstruction.")
+        
+        if images_size < 50:  # Very small file suggests no/few images
+            raise ValueError(f"COLMAP images.bin file is too small ({images_size} bytes), "
+                           f"suggesting insufficient registered images.")
+        
+        print(f"COLMAP validation (binary): points3D.bin ({points_size} bytes), "
+              f"images.bin ({images_size} bytes)")
+        print("Binary format detected - files appear to contain data")
+        
+    else:
+        # Original text-based validation
+        points3d_file = points3d_txt
+        images_file = images_txt
+        
+        # Count 3D points (skip header lines starting with #)
+        point_count = 0
+        try:
+            with open(points3d_file, 'r') as f:
+                for line in f:
+                    if not line.startswith('#') and line.strip():
+                        point_count += 1
+        except Exception as e:
+            raise ValueError(f"Error reading COLMAP points3D.txt: {e}")
+        
+        # Count registered images
+        image_count = 0
+        try:
+            with open(images_file, 'r') as f:
+                for line in f:
+                    if not line.startswith('#') and line.strip():
+                        image_count += 1
+        except Exception as e:
+            raise ValueError(f"Error reading COLMAP images.txt: {e}")
+        
+        print(f"COLMAP validation (text): {point_count} 3D points, {image_count} registered images")
+        
+        if point_count < min_points:
+            raise ValueError(f"COLMAP produced too few 3D points: {point_count} < {min_points}. "
+                            f"Scene reconstruction quality is insufficient.")
+        
+        if image_count < 2:
+            raise ValueError(f"COLMAP registered too few images: {image_count} < 2. "
+                            f"Need at least 2 images for reconstruction.")
+    
+    print("COLMAP validation passed!")
+
 def run_colmap_sfm(workspace_path, image_path, undistorted_output_path):
     """
     Performs Structure-from-Motion (SfM) using COLMAP.
@@ -84,6 +182,17 @@ def run_colmap_sfm(workspace_path, image_path, undistorted_output_path):
         undistorted_output_path (str): Path where undistorted images and dense reconstruction will be saved.
     """
     print(f"\n--- Part 2: Structure-from-Motion (COLMAP) ---")
+
+    # Force clean COLMAP workspace
+    colmap_db = os.path.join(workspace_path, 'database.db')
+    if os.path.exists(colmap_db):
+        os.remove(colmap_db)
+        print(f"Removed existing COLMAP database: {colmap_db}")
+
+    sparse_dir = os.path.join(workspace_path, 'sparse')
+    if os.path.exists(sparse_dir):
+        shutil.rmtree(sparse_dir)
+        print(f"Removed existing COLMAP sparse directory: {sparse_dir}")
 
     # Ensure necessary COLMAP output directories exist
     # COLMAP creates 'sparse' and 'database.db' directly in workspace_path
@@ -115,6 +224,10 @@ def run_colmap_sfm(workspace_path, image_path, undistorted_output_path):
         '--output_path', undistorted_output_path
     ]
     run_command(command_undistort)
+
+    validate_colmap_output(workspace_path)
+    
+    print("COLMAP SfM completed and validated.")
     print("COLMAP image_undistorter completed.")
 
 def run_openmvs_reconstruction(openmvs_bin_path, colmap_undistorted_output_path, mvs_output_dir):
@@ -279,7 +392,7 @@ def main():
         print(f"Final GLB and MVS output directory: {final_glb_output_dir}")
 
         # Execute Part 1: Frame Extraction
-        extract_frames(video_path, images_dir, fps=1)
+        extract_frames(video_path, images_dir, fps=0.75)
 
         # Execute Part 2: Structure-from-Motion (SfM) with COLMAP
         run_colmap_sfm(workspace, images_dir, colmap_undistorted_dir)
