@@ -340,3 +340,41 @@ CREATE POLICY "Users can create their own orders" ON orders
 -- RLS Policies for vendor analytics
 CREATE POLICY "Vendors can view their own analytics" ON vendor_analytics
     FOR SELECT USING (auth.uid() = vendor_id);
+
+-- RLS Policies for media_assets table
+CREATE POLICY "Anyone can view media for active furniture" ON media_assets
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM furniture 
+            WHERE furniture.id = media_assets.furniture_id 
+            AND furniture.status = 'active'
+        )
+    );
+
+CREATE POLICY "Vendors can manage media for their own furniture" ON media_assets
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM furniture 
+            WHERE furniture.id = media_assets.furniture_id 
+            AND furniture.vendor_id = auth.uid()
+        )
+    );
+
+-- RLS Policies for model_generation_jobs table
+CREATE POLICY "Vendors can view their own generation jobs" ON model_generation_jobs
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM furniture 
+            WHERE furniture.id = model_generation_jobs.furniture_id 
+            AND furniture.vendor_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Vendors can manage their own generation jobs" ON model_generation_jobs
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM furniture 
+            WHERE furniture.id = model_generation_jobs.furniture_id 
+            AND furniture.vendor_id = auth.uid()
+        )
+    );

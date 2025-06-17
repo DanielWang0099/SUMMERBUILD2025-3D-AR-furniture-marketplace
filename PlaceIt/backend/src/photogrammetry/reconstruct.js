@@ -114,6 +114,56 @@ function runPython(args, cwd) {
     });
   });
 }
+
+
+/**
+ * Aggressively cleans up workspace directories and OpenMVS temporary files
+ * @param {string} workRoot - The workspace root directory
+ * @param {string} furnitureId - The furniture ID for logging
+ */
+async function cleanupWorkspace(workRoot, furnitureId) {
+  console.log(`Starting aggressive cleanup for workspace: ${workRoot}`);
+  
+  try {
+    // First, try to remove the entire workspace directory
+    await fs.rm(workRoot, { recursive: true, force: true });
+    console.log(`Removed workspace directory: ${workRoot}`);
+    
+    // Also clean up any potential OpenMVS temp files that might be lingering
+    // OpenMVS sometimes creates temp files in system temp directories
+    const tempDirs = [
+      process.env.TEMP,
+      process.env.TMP,
+      '/tmp',
+      path.join(require('os').homedir(), 'tmp')
+    ].filter(Boolean);
+    
+    for (const tempDir of tempDirs) {
+      if (await fs.access(tempDir).then(() => true).catch(() => false)) {
+        try {
+          const files = await fs.readdir(tempDir);
+          const mvsTempFiles = files.filter(file => 
+            file.includes('mvs') || 
+            file.includes('openmvs') || 
+            file.includes(furnitureId)
+          );
+          
+          for (const file of mvsTempFiles) {
+            const filePath = path.join(tempDir, file);
+            await fs.rm(filePath, { recursive: true, force: true });
+            console.log(`Cleaned temp file: ${filePath}`);
+          }
+        } catch (err) {
+          console.warn(`Could not clean temp directory ${tempDir}:`, err.message);
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.error(`Error during workspace cleanup:`, error.message);
+  }
+}
+
 /**
  * Public API: Creates or refreshes a 3D mesh for a furniture item using photogrammetry.
  * The process involves downloading a video, running a Python photogrammetry pipeline,
@@ -150,15 +200,16 @@ async function reconstructFurniture(furnitureId) {
     // Fetch and store the video media asset details, especially its ID
     const mediaAsset = await fetchFurnitureVideo(furnitureId, videoDestPath);
     videoAssetId = mediaAsset.id; // Store the video asset ID
-    videoUrl = mediaAsset.url; // Store the video URL
-
-    // 2. Check if a job already exists for this furniture and video asset
+    videoUrl = mediaAsset.url; // Store the video URL    // 2. Atomic check-and-create for job to prevent race conditions
     console.log(`Checking for existing model_generation_job for furnitureId: ${furnitureId}, videoAssetId: ${videoAssetId}`);
+    
+    // First, try to find any existing job for this furniture + video combination
     const { data: existingJob, error: checkJobErr } = await supabase
       .from('model_generation_jobs')
       .select('id, status, output_model_url')
       .eq('furniture_id', furnitureId)
       .eq('video_asset_id', videoAssetId)
+      .order('created_at', { ascending: false })
       .limit(1)
       .single();
 
@@ -193,14 +244,15 @@ async function reconstructFurniture(furnitureId) {
           error_code: null,
           updated_at: new Date().toISOString()
         })
-        .eq('id', jobId);
+        .eq('id', jobId)
+        .eq('status', existingJob.status); // Add status condition to prevent conflicts
 
       if (updateJobErr) {
         console.error(`Failed to update existing job to 'processing': ${updateJobErr.message}`);
         throw new Error(`Failed to update job status: ${updateJobErr.message}`);
       }
     } else {
-      // No existing job found, create a new one
+      // No existing job found, try to create a new one atomically
       console.log(`No existing job found. Creating new model_generation_job for furnitureId: ${furnitureId}`);
       
       // If fetchFurnitureVideo doesn't return the URL, fetch it from media_assets table
@@ -220,13 +272,14 @@ async function reconstructFurniture(furnitureId) {
         videoUrl = mediaAssetData.url;
       }
 
+      // Attempt atomic insert with unique constraint handling
       const { data: newJob, error: createJobErr } = await supabase
         .from('model_generation_jobs')
         .insert([{
           furniture_id: furnitureId,
           video_asset_id: videoAssetId,
-          video_url: videoUrl, // Now including the required video_url
-          status: 'processing',
+          video_url: videoUrl,
+          status: 'processing', // Set directly to processing to claim the job
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }])
@@ -234,12 +287,38 @@ async function reconstructFurniture(furnitureId) {
         .single();
 
       if (createJobErr) {
-        console.error(`Failed to create new model_generation_job: ${createJobErr.message}`);
-        throw new Error(`Failed to create job: ${createJobErr.message}`);
+        // Check if this is a unique constraint violation (job already exists)
+        if (createJobErr.code === '23505' || createJobErr.message.includes('duplicate') || createJobErr.message.includes('unique')) {
+          console.log(`Job already exists for furnitureId: ${furnitureId}, videoAssetId: ${videoAssetId}. Another process created it.`);
+          // Re-query to get the existing job
+          const { data: retryJob, error: retryErr } = await supabase
+            .from('model_generation_jobs')
+            .select('id, status')
+            .eq('furniture_id', furnitureId)
+            .eq('video_asset_id', videoAssetId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+          
+          if (retryErr) {
+            throw new Error(`Failed to fetch existing job after conflict: ${retryErr.message}`);
+          }
+          
+          // If the other job is processing, exit gracefully
+          if (retryJob.status === 'processing') {
+            console.log(`Another process is already processing this job. Exiting.`);
+            return;
+          }
+          
+          jobId = retryJob.id;
+        } else {
+          console.error(`Failed to create new model_generation_job: ${createJobErr.message}`);
+          throw new Error(`Failed to create job: ${createJobErr.message}`);
+        }
+      } else {
+        jobId = newJob.id;
+        console.log(`Created new job with ID: ${jobId}`);
       }
-      
-      jobId = newJob.id;
-      console.log(`Created new job with ID: ${jobId}`);
     }
 
     // 3. Run photogrammetry pipeline (photogrammetry/main.py)
@@ -429,7 +508,7 @@ async function reconstructFurniture(furnitureId) {
   } finally {
     // Always clean up the furniture-specific directory
     console.log(`Cleaning up dedicated workspace: ${workRoot}`);
-    await fs.rm(workRoot, { recursive: true, force: true });
+    await cleanupWorkspace(workRoot, furnitureId);
     console.log(`Cleaned up workspace for ${furnitureId}`);
   }
 }

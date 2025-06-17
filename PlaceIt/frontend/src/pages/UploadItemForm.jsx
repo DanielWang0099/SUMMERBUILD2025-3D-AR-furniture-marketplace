@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { CloudArrowUpIcon, CubeIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { CloudArrowUpIcon, CubeIcon, PlusIcon, CheckIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../components/UI/LoadingSpinner'; // Adjust path as needed
 
 const UploadItemForm = React.memo(({
@@ -260,9 +260,10 @@ const UploadItemForm = React.memo(({
             Upload Video for 3D Model Generation (Optional)
           </label>
           <div className="border-2 border-dashed border-[#209aaa]/30 rounded-lg p-8 text-center bg-white/40">
-            <CubeIcon className="h-12 w-12 text-[#209aaa] mx-auto mb-4" />
-            <p className="text-[#2a5d93] mb-2">Upload a 360° video of your furniture</p>
-            <p className="text-sm text-[#2a5d93]/60">MP4, MOV up to 100MB. We'll generate a 3D model automatically!</p>
+            <CubeIcon className="h-12 w-12 text-[#209aaa] mx-auto mb-4" />            <p className="text-[#2a5d93] mb-2">Upload a 360° video of your furniture</p>
+            <p className="text-sm text-[#2a5d93]/60">
+              MP4, MOV up to 100MB. Rotate around your furniture slowly for best results.
+            </p>
             <div className="mt-4 flex justify-center">
               <label className="cursor-pointer bg-[#2a5d93] text-white px-4 py-2 rounded-md shadow-sm hover:bg-[#244d7d] transition">
                 Upload Video
@@ -273,17 +274,53 @@ const UploadItemForm = React.memo(({
                   className="hidden"
                 />
               </label>
-            </div>
-            {uploadFiles.video && (
-              <div className="mt-4">
-                <p className="text-sm text-[#0c1825]">Video selected: {uploadFiles.video.name}</p>
+            </div>            {uploadFiles.video && (
+              <div className="mt-4 space-y-2">
+                <p className="text-sm text-[#0c1825] font-medium">
+                  ✓ Video selected: {uploadFiles.video.name}
+                </p>
+                <p className="text-xs text-[#2a5d93]/70">
+                  File size: {(uploadFiles.video.size / (1024 * 1024)).toFixed(2)} MB
+                </p>
               </div>
             )}
           </div>
-        </div>
+        </div>        {/* 3D Model Generation Checkbox */}
+        {uploadFiles.video && (
+          <div className="bg-gradient-to-r from-[#29d4c5]/10 to-[#209aaa]/10 border border-[#29d4c5]/30 rounded-lg p-6">
+            <div className="flex items-start space-x-3">
+              <div className="flex items-center h-5">
+                <input
+                  id="generate3D"
+                  type="checkbox"
+                  checked={formData.generate3D}
+                  onChange={(e) => handleInputChange('generate3D', e.target.checked)}
+                  className="h-4 w-4 text-[#29d4c5] focus:ring-[#29d4c5] border-[#29d4c5]/30 rounded"
+                />
+              </div>
+              <div className="ml-3 text-sm">
+                <label htmlFor="generate3D" className="font-medium text-[#0c1825] cursor-pointer">
+                  Generate 3D Model from Video
+                </label>
+                <p className="text-[#2a5d93]/80 mt-1">
+                  Use AI-powered photogrammetry to create a 3D model from your uploaded video. This will allow customers to view your furniture in AR and get a better understanding of the product.
+                </p>
+                {formData.generate3D && (
+                  <div className="mt-2 p-3 bg-[#29d4c5]/10 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <CheckIcon className="h-4 w-4 text-[#29d4c5]" />
+                      <span className="text-xs text-[#2a5d93] font-medium">
+                        3D model generation will start after your listing is created. Monitor progress in the dashboard.
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
-        <div className="flex space-x-4">
-          <button
+        <div className="flex space-x-4">          <button
             type="submit"
             disabled={loading}
             className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white px-8 py-3 rounded-lg hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"

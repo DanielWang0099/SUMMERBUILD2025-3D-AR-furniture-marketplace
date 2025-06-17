@@ -267,6 +267,21 @@ class ApiService {
     });
   }
 
+  // New method for calling photogrammetry/reconstruct endpoint
+  async reconstructFurniture(furnitureId) {
+    return this.request('/photogrammetry/reconstruct', {
+      method: 'POST',
+      body: JSON.stringify({
+        furnitureId: furnitureId,
+      }),
+    });
+  }
+
+  // Method to get reconstruction jobs for the current user
+  async getReconstructionJobs() {
+    return this.request('/vendor/reconstruction-jobs');
+  }
+
   async getVendorRecommendations() {
     return this.request('/vendor/recommendations');
   }
