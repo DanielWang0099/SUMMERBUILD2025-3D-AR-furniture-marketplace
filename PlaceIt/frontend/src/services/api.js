@@ -288,7 +288,6 @@ class ApiService {
   // ===========================================
   // UPLOAD METHODS
   // ===========================================
-
   async uploadMedia(file, furnitureId = null, type = 'image') {
     const formData = new FormData();
     formData.append('file', file);
@@ -301,6 +300,19 @@ class ApiService {
         Authorization: this.token ? `Bearer ${this.token}` : undefined,
       },
       body: formData,
+    });
+  }
+
+  async deleteMedia(mediaId) {
+    return this.request(`/uploads/media/${mediaId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateMedia(mediaId, updateData) {
+    return this.request(`/uploads/media/${mediaId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updateData),
     });
   }
 

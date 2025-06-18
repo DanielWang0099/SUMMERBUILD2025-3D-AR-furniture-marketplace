@@ -22,20 +22,18 @@ const Cart = () => {
     
     try {
       setIsUpdating(prev => ({ ...prev, [cartItemId]: true }));
-      await updateCartQuantity(cartItemId, newQuantity);
-    } catch (error) {
-      showToast('Failed to update quantity', 'error');
+      await updateCartQuantity(cartItemId, newQuantity);    } catch (error) {
+      showToast({ type: 'error', message: 'Failed to update quantity' });
     } finally {
       setIsUpdating(prev => ({ ...prev, [cartItemId]: false }));
     }
   };
-
   const removeItem = async (cartItemId) => {
     try {
       await removeFromCart(cartItemId);
-      showToast('Item removed from cart', 'info');
+      showToast({ type: 'info', message: 'Item removed from cart' });
     } catch (error) {
-      showToast('Failed to remove item', 'error');
+      showToast({ type: 'error', message: 'Failed to remove item' });
     }
   };
 
@@ -43,11 +41,10 @@ const Cart = () => {
   const subtotal = cart.reduce((total, item) => total + (item.furniture.price * item.quantity), 0);
   const shipping = subtotal > 1000 ? 0 : 99;
   const tax = subtotal * 0.08;
-  const total = subtotal + shipping + tax;
-  if (cart.length === 0) {
+  const total = subtotal + shipping + tax;  if (cart.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa]">
-        <div className="container mx-auto px-4 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <NoData 
             message="Your cart is empty" 
             icon={ShoppingBagIcon}
@@ -66,10 +63,9 @@ const Cart = () => {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa]">
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">

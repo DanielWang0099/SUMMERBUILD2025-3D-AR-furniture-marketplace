@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   CloudArrowUpIcon,
@@ -22,6 +23,8 @@ import LoadingSpinner from '../components/UI/LoadingSpinner';
 import UploadItemForm from '../pages/UploadItemForm'; // Import the new component
 
 const Sell = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(false);
   const [dashboardStats, setDashboardStats] = useState(null);
@@ -332,8 +335,7 @@ const Sell = () => {
     console.log('Would normally show a confirmation modal here for deleting listing:', id);
 
     try {
-      setLoading(true);
-      const response = await apiService.deleteFurniture(id);
+      setLoading(true);      const response = await apiService.deleteFurniture(id);
       if (response.success) {
         showToast({ message: 'Listing deleted successfully', type: 'success' });
         fetchListings();
@@ -346,6 +348,16 @@ const Sell = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleViewFurniture = (furnitureId) => {
+    navigate(`/product/${furnitureId}`, { 
+      state: { 
+        returnTo: '/sell', 
+        returnToTab: 'listings',
+        returnToName: 'My Listings'
+      } 
+    });
   };
 
   const formatCurrency = (amount) => {
@@ -396,6 +408,15 @@ const Sell = () => {
       }
     ];
   };
+
+  // Handle navigation state when returning from ProductDetail
+  useEffect(() => {
+    if (location.state?.activeTab) {
+      setActiveTab(location.state.activeTab);
+      // Clear the navigation state
+      navigate('/sell', { replace: true });
+    }
+  }, [location.state, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#b6cacb]/10 to-white">      {/* Header */}
@@ -721,8 +742,10 @@ const Sell = () => {
                         </span>
                       </div>
 
-                      <div className="flex space-x-2">
-                        <button className="flex-1 bg-white/80 border border-[#29d4c5]/30 text-[#0c1825] py-2 px-3 rounded-lg hover:bg-[#29d4c5]/20 transition-colors flex items-center justify-center space-x-1">
+                      <div className="flex space-x-2">                        <button 
+                          onClick={() => handleViewFurniture(listing.id)}
+                          className="flex-1 bg-white/80 border border-[#29d4c5]/30 text-[#0c1825] py-2 px-3 rounded-lg hover:bg-[#29d4c5]/20 transition-colors flex items-center justify-center space-x-1"
+                        >
                           <EyeIcon className="h-4 w-4" />
                           <span>View</span>
                         </button>

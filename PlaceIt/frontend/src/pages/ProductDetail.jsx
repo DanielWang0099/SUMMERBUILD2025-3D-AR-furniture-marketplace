@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import apiService from '../services/api';
@@ -22,6 +22,8 @@ import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { addToCart, addToFavorites, removeFromFavorites, favorites, showToast } = useApp();
   
   const [product, setProduct] = useState(null);
@@ -133,6 +135,35 @@ const ProductDetail = () => {
     { id: 'reviews', name: `Reviews (${reviewCount})` }
   ];
 
+  const handleGoBack = () => {
+    const returnState = location.state;
+    if (returnState?.returnTo) {
+      if (returnState.returnTo === '/sell' && returnState.returnToTab) {
+        // Navigate to sell page and set the correct tab
+        navigate('/sell', { 
+          state: { activeTab: returnState.returnToTab } 
+        });
+      } else {
+        navigate(returnState.returnTo);
+      }
+    } else {
+      // Default behavior - go to browse
+      navigate('/browse');
+    }
+  };
+  const getBackButtonText = () => {
+    const returnState = location.state;
+    if (returnState?.returnToName) {
+      return `Back to ${returnState.returnToName}`;
+    }
+    return 'Back to Browse';
+  };
+
+  const isViewingOwnProduct = () => {
+    const returnState = location.state;
+    return returnState?.returnTo === '/sell' && returnState?.returnToTab === 'listings';
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa] flex items-center justify-center">
@@ -148,29 +179,26 @@ const ProductDetail = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa] flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 text-lg mb-4">{error || 'Product not found'}</p>
-          <Link 
-            to="/browse" 
+          <p className="text-red-400 text-lg mb-4">{error || 'Product not found'}</p>          <button
+            onClick={handleGoBack}
             className="px-6 py-3 bg-[#29d4c5] text-white rounded-lg hover:bg-[#209aaa] transition-colors"
           >
-            Back to Browse
-          </Link>
+            {getBackButtonText()}
+          </button>
         </div>
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa]">
-      <div className="container mx-auto px-4 py-8">
-        {/* Back Button */}
-        <Link 
-          to="/browse"
-          className="inline-flex items-center gap-2 text-white hover:text-[#29d4c5] mb-6 transition-colors"
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">        {/* Back Button */}
+        <button 
+          onClick={handleGoBack}
+          className="inline-flex items-center gap-2 text-white hover:text-[#29d4c5] mb-6 transition-colors bg-transparent border-none cursor-pointer"
         >
           <ArrowLeftIcon className="h-5 w-5" />
-          Back to Browse
-        </Link>
+          {getBackButtonText()}
+        </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Product Images and Media */}
@@ -314,52 +342,68 @@ const ProductDetail = () => {
                     </li>
                   ))}
                 </ul>
+              </div>            )}
+
+            {/* Quantity and Add to Cart - Hidden when viewing own product */}
+            {!isViewingOwnProduct() && (
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <label className="text-white font-medium">Quantity:</label>
+                  <div className="flex items-center border border-white/30 rounded-lg">
+                    <button
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="px-3 py-2 text-white hover:bg-white/10 transition-colors"
+                    >
+                      -
+                    </button>
+                    <span className="px-4 py-2 text-white bg-white/10">{quantity}</span>
+                    <button
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="px-3 py-2 text-white hover:bg-white/10 transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleAddToCart}
+                  disabled={addingToCart}
+                  className="w-full flex items-center justify-center gap-2 bg-[#29d4c5] hover:bg-[#209aaa] text-white py-4 px-6 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {addingToCart ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  ) : (
+                    <>
+                      <ShoppingCartIcon className="h-5 w-5" />
+                      Add to Cart - ${(product.price * quantity).toFixed(2)}
+                    </>
+                  )}
+                </button>
+
+                {product.shipping && (
+                  <div className="flex items-center gap-2 mt-4 text-[#b6cacb]">
+                    <TruckIcon className="h-4 w-4" />
+                    <span className="text-sm">{product.shipping}</span>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Quantity and Add to Cart */}
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6">
-              <div className="flex items-center gap-4 mb-4">
-                <label className="text-white font-medium">Quantity:</label>
-                <div className="flex items-center border border-white/30 rounded-lg">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="px-3 py-2 text-white hover:bg-white/10 transition-colors"
-                  >
-                    -
-                  </button>
-                  <span className="px-4 py-2 text-white bg-white/10">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="px-3 py-2 text-white hover:bg-white/10 transition-colors"
-                  >
-                    +
-                  </button>
+            {/* Viewing Own Product Message */}
+            {isViewingOwnProduct() && (
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 text-[#29d4c5] mb-2">
+                    <EyeIcon className="h-5 w-5" />
+                    <span className="font-semibold">Viewing Your Product</span>
+                  </div>
+                  <p className="text-[#b6cacb] text-sm">
+                    This is how your product appears to customers. You can edit this listing from your seller dashboard.
+                  </p>
                 </div>
               </div>
-
-              <button
-                onClick={handleAddToCart}
-                disabled={addingToCart}
-                className="w-full flex items-center justify-center gap-2 bg-[#29d4c5] hover:bg-[#209aaa] text-white py-4 px-6 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {addingToCart ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  <>
-                    <ShoppingCartIcon className="h-5 w-5" />
-                    Add to Cart - ${(product.price * quantity).toFixed(2)}
-                  </>
-                )}
-              </button>
-
-              {product.shipping && (
-                <div className="flex items-center gap-2 mt-4 text-[#b6cacb]">
-                  <TruckIcon className="h-4 w-4" />
-                  <span className="text-sm">{product.shipping}</span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
 

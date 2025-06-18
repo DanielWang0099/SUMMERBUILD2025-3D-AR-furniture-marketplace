@@ -2,13 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
+import UploadItemForm from './UploadItemForm';
+import LoadingSpinner from '../components/UI/LoadingSpinner';
+import apiService from '../services/api';
 import { 
-  PhotoIcon,
-  PlusIcon,
-  TrashIcon,
-  CubeIcon,
-  DevicePhoneMobileIcon,
-  CheckCircleIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
@@ -17,109 +14,134 @@ const VendorProductForm = () => {
   const { productId } = useParams();
   const { user, showToast } = useApp();
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [categories, setCategories] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     short_description: '',
     long_description: '',
+    description: '', // For compatibility with UploadItemForm
     price: '',
     compare_at_price: '',
     category_id: '',
     stock_quantity: '',
+    inventory_count: '',
     dimensions: {
       width: '',
       height: '',
       depth: '',
-      weight: ''
+      weight: '',
+      unit: 'inches'
     },
     materials: [],
     colors: [],
     tags: [],
+    features: [],
     is_active: true,
     has_3d_model: false,
-    has_ar_model: false
-  });
+    has_ar_model: false,
+    status: 'active'  });
   const [images, setImages] = useState([]);
-  const [newMaterial, setNewMaterial] = useState('');
-  const [newColor, setNewColor] = useState('');
-  const [newTag, setNewTag] = useState('');
-  useEffect(() => {
-    fetchCategories();
-    
-    if (productId) {
-      fetchProduct();
-    }
-  }, [productId, user]);
+  const [uploadFiles, setUploadFiles] = useState({
+    images: [],
+    video: null
+  });
 
+  useEffect(() => {
+    // Only initialize if user is loaded (not null)
+    if (user === null) return; // Still loading user
+    
+    const initializePage = async () => {
+      try {
+        await fetchCategories();
+        if (productId) {
+          await fetchProduct();
+        }
+      } catch (error) {
+        console.error('Error initializing page:', error);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    initializePage();
+  }, [productId, user]); // Add user as dependency
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/categories`);
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
-      }
+      const response = await apiService.getCategories();
+      setCategories(Array.isArray(response) ? response : (response.data || []));
     } catch (error) {
       console.error('Error fetching categories:', error);
+      showToast({ type: 'error', message: 'Failed to load categories' });
+      setCategories([]);
     }
   };
-
   const fetchProduct = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/furniture/${productId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      if (!user || !user.id) {
+        console.error('User not loaded or missing ID');
+        return;
+      }
+      
+      const apiResponse = await apiService.getFurnitureById(productId);
+      const product = apiResponse.data || apiResponse;
+      
+      // Check if user owns this product
+      const productVendorId = String(product.vendor_id);
+      const userId = String(user.id);
+      
+      if (productVendorId !== userId) {
+        showToast({ type: 'error', message: 'You can only edit your own products' });
+        navigate('/vendor-dashboard');
+        return;
+      }
+      
+      setFormData({
+        title: product.title || '',
+        short_description: product.short_description || '',
+        long_description: product.long_description || '',
+        description: product.long_description || product.description || '',
+        price: product.price?.toString() || '',
+        compare_at_price: product.compare_at_price?.toString() || '',
+        category_id: product.category_id || '',
+        stock_quantity: product.stock_quantity?.toString() || '',
+        inventory_count: product.stock_quantity?.toString() || '',
+        dimensions: {
+          width: product.dimensions?.width?.toString() || '',
+          height: product.dimensions?.height?.toString() || '',
+          depth: product.dimensions?.depth?.toString() || '',
+          weight: product.dimensions?.weight?.toString() || '',
+          unit: product.dimensions?.unit || 'inches'
+        },
+        materials: product.materials || [],
+        colors: product.colors || [],
+        tags: product.tags || [],
+        features: product.tags || product.features || [],
+        is_active: product.is_active !== false,
+        has_3d_model: product.has_3d_model || false,
+        has_ar_model: product.has_ar_model || false,
+        status: product.is_active ? 'active' : 'draft'
       });
       
-      if (response.ok) {
-        const product = await response.json();
-        
-        // Check if user owns this product
-        if (product.vendor_id !== user.id) {
-          showToast('You can only edit your own products', 'error');
-          navigate('/vendor-dashboard');
-          return;
-        }
-        
-        setFormData({
-          title: product.title || '',
-          short_description: product.short_description || '',
-          long_description: product.long_description || '',
-          price: product.price?.toString() || '',
-          compare_at_price: product.compare_at_price?.toString() || '',
-          category_id: product.category_id || '',
-          stock_quantity: product.stock_quantity?.toString() || '',
-          dimensions: {
-            width: product.dimensions?.width?.toString() || '',
-            height: product.dimensions?.height?.toString() || '',
-            depth: product.dimensions?.depth?.toString() || '',
-            weight: product.dimensions?.weight?.toString() || ''
-          },
-          materials: product.materials || [],
-          colors: product.colors || [],
-          tags: product.tags || [],
-          is_active: product.is_active !== false,
-          has_3d_model: product.has_3d_model || false,
-          has_ar_model: product.has_ar_model || false
-        });
-        
-        // Set existing images
-        if (product.media_assets) {
-          setImages(product.media_assets.filter(asset => asset.type === 'image'));
-        }
+      // Set existing images
+      if (product.media_assets) {
+        setImages(product.media_assets.filter(asset => asset.type === 'image'));
       }
     } catch (error) {
       console.error('Error fetching product:', error);
-      showToast('Failed to load product', 'error');
+      if (error.message.includes('401') || error.message.includes('Authentication')) {
+        showToast({ type: 'error', message: 'Session expired. Please log in again.' });
+        navigate('/login');
+        return;
+      }
+      showToast({ type: 'error', message: 'Failed to load product' });
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    
-    if (name.startsWith('dimensions.')) {
-      const dimensionField = name.split('.')[1];
+  // Handle input changes for UploadItemForm compatibility
+  const handleInputChange = (field, value) => {
+    if (field.startsWith('dimensions.')) {
+      const dimensionField = field.split('.')[1];
       setFormData(prev => ({
         ...prev,
         dimensions: {
@@ -130,649 +152,136 @@ const VendorProductForm = () => {
     } else {
       setFormData(prev => ({
         ...prev,
-        [name]: type === 'checkbox' ? checked : value
+        [field]: value,
+        // Sync description fields
+        ...(field === 'description' && { long_description: value }),
+        ...(field === 'long_description' && { description: value })
       }));
     }
   };
 
-  const addArrayItem = (arrayName, value, setValue) => {
-    if (value.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        [arrayName]: [...prev[arrayName], value.trim()]
-      }));
-      setValue('');
-    }
-  };
-
-  const removeArrayItem = (arrayName, index) => {
+  // Handle array input changes (materials, colors, features)
+  const handleArrayInputChange = (field, value) => {
+    const arrayValue = value.split(',').map(item => item.trim()).filter(item => item);
     setFormData(prev => ({
       ...prev,
-      [arrayName]: prev[arrayName].filter((_, i) => i !== index)
+      [field]: arrayValue
     }));
   };
-
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    
-    files.forEach(file => {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setImages(prev => [...prev, {
-            file,
-            url: e.target.result,
-            type: 'image',
-            is_primary: images.length === 0
-          }]);
-        };
-        reader.readAsDataURL(file);
-      }
-    });
+  // Handle file uploads - simplified (no actual uploads in edit mode)
+  const handleFileUpload = (type, files) => {
+    // In edit mode, we don't handle new file uploads
+    console.log(`File upload not supported in edit mode: ${type}`, files);
+  };// Remove existing image - simplified (no API call)
+  const handleRemoveExistingImage = (imageId) => {
+    setImages(prev => prev.filter(img => (img.id || img.image_id) !== imageId));
   };
 
-  const removeImage = (index) => {
-    setImages(prev => {
-      const newImages = prev.filter((_, i) => i !== index);
-      // If we removed the primary image, make the first remaining image primary
-      if (newImages.length > 0 && !newImages.some(img => img.is_primary)) {
-        newImages[0].is_primary = true;
-      }
-      return newImages;
-    });
-  };
-
-  const setPrimaryImage = (index) => {
-    setImages(prev => prev.map((img, i) => ({
+  // Set primary image - simplified (no API call)
+  const handleSetPrimaryImage = (imageId) => {
+    setImages(prev => prev.map(img => ({
       ...img,
-      is_primary: i === index
+      is_primary: (img.id || img.image_id) === imageId
     })));
   };
-
-  const handleSubmit = async (e) => {
+  // Submit listing (handles both create and update)
+  const submitListing = async (e, status = 'active') => {
     e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      const token = localStorage.getItem('token');
-      
-      // Create FormData for file uploads
-      const formDataToSend = new FormData();
-      
-      // Add product data
+    setIsLoading(true);    try {
+      // Prepare product data as JSON (no FormData)
       const productData = {
-        ...formData,
+        title: formData.title,
+        description: formData.long_description || formData.description,
+        short_description: formData.short_description,
         price: parseFloat(formData.price),
         compare_at_price: formData.compare_at_price ? parseFloat(formData.compare_at_price) : null,
-        stock_quantity: parseInt(formData.stock_quantity),
+        category_id: formData.category_id || null,
+        inventory_count: parseInt(formData.inventory_count || formData.stock_quantity || 0),
         dimensions: {
           width: formData.dimensions.width ? parseFloat(formData.dimensions.width) : null,
           height: formData.dimensions.height ? parseFloat(formData.dimensions.height) : null,
           depth: formData.dimensions.depth ? parseFloat(formData.dimensions.depth) : null,
-          weight: formData.dimensions.weight ? parseFloat(formData.dimensions.weight) : null
-        }
-      };
-      
-      formDataToSend.append('productData', JSON.stringify(productData));
-      
-      // Add image files
-      images.forEach((image, index) => {
-        if (image.file) {
-          formDataToSend.append('images', image.file);
-          formDataToSend.append(`imageData_${index}`, JSON.stringify({
-            is_primary: image.is_primary,
-            type: 'image'
-          }));
-        }
-      });
-
-      const url = productId 
-        ? `${import.meta.env.VITE_API_URL}/api/furniture/${productId}`
-        : `${import.meta.env.VITE_API_URL}/api/furniture`;
-      
-      const method = productId ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`
+          weight: formData.dimensions.weight ? parseFloat(formData.dimensions.weight) : null,
+          unit: formData.dimensions.unit || 'inches'
         },
-        body: formDataToSend
-      });
+        materials: formData.materials || [],
+        colors: formData.colors || [],
+        tags: formData.tags || [],
+        features: formData.features || [],
+        has_3d_model: formData.has_3d_model || false,
+        has_ar_support: formData.has_ar_model || false,
+        status: formData.is_active ? 'active' : status      };      console.log('Sending product data:', JSON.stringify(productData, null, 2));
 
-      if (response.ok) {
-        showToast(
-          productId ? 'Product updated successfully!' : 'Product created successfully!',
-          'success'
-        );
-        navigate('/vendor-dashboard');
+      // Step 1: Create or update the product using API service
+      let result;
+      if (productId) {
+        result = await apiService.updateFurniture(productId, productData);
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save product');
-      }
+        result = await apiService.createFurniture(productData);      }
+      
+      const furnitureId = result.data.id;
+
+      showToast({
+        type: 'success',
+        message: productId ? 'Product updated successfully!' : 'Product created successfully!'
+      });
+      navigate('/vendor-dashboard');
+
     } catch (error) {
       console.error('Error saving product:', error);
-      showToast(error.message || 'Failed to save product', 'error');
+      showToast({ type: 'error', message: error.message || 'Failed to save product' });
     } finally {
-      setIsLoading(false);    }
+      setIsLoading(false);
+    }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa]">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            {productId ? 'Edit Product' : 'Add New Product'}
-          </h1>
-          <p className="text-[#b6cacb] text-lg">
-            {productId ? 'Update your furniture listing' : 'Create a new furniture listing'}
-          </p>
+  // Show loading state while initializing or user is still loading
+  if (isInitialLoading || user === null) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa] flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner />
+          <p className="text-white mt-4 text-lg">Loading...</p>
         </div>
+      </div>
+    );
+  }
 
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column - Basic Info */}
-            <div className="space-y-6">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 shadow-lg"
-              >
-                <h2 className="text-xl font-semibold text-white mb-4">Basic Information</h2>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Product Title *
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      value={formData.title}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                      placeholder="Enter product title"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Short Description *
-                    </label>
-                    <input
-                      type="text"
-                      name="short_description"
-                      value={formData.short_description}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                      placeholder="Brief description for listings"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Long Description
-                    </label>
-                    <textarea
-                      name="long_description"
-                      value={formData.long_description}
-                      onChange={handleInputChange}
-                      rows={4}
-                      className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                      placeholder="Detailed product description"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Category *
-                    </label>
-                    <select
-                      name="category_id"
-                      value={formData.category_id}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                    >
-                      <option value="">Select a category</option>
-                      {categories.map(category => (
-                        <option key={category.id} value={category.id} className="bg-[#0c1825]">
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Pricing */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 shadow-lg"
-              >
-                <h2 className="text-xl font-semibold text-white mb-4">Pricing & Inventory</h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Price * ($)
-                    </label>
-                    <input
-                      type="number"
-                      name="price"
-                      value={formData.price}
-                      onChange={handleInputChange}
-                      required
-                      min="0"
-                      step="0.01"
-                      className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                      placeholder="0.00"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Compare At Price ($)
-                    </label>
-                    <input
-                      type="number"
-                      name="compare_at_price"
-                      value={formData.compare_at_price}
-                      onChange={handleInputChange}
-                      min="0"
-                      step="0.01"
-                      className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                      placeholder="0.00"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Stock Quantity *
-                    </label>
-                    <input
-                      type="number"
-                      name="stock_quantity"
-                      value={formData.stock_quantity}
-                      onChange={handleInputChange}
-                      required
-                      min="0"
-                      className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Right Column - Images and Details */}
-            <div className="space-y-6">
-              {/* Images */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 shadow-lg"
-              >
-                <h2 className="text-xl font-semibold text-white mb-4">Product Images</h2>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-white text-sm font-medium mb-2">
-                      Upload Images
-                    </label>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-[#29d4c5] file:text-white hover:file:bg-[#209aaa]"
-                    />
-                  </div>
-
-                  {images.length > 0 && (
-                    <div className="grid grid-cols-2 gap-4">
-                      {images.map((image, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={image.url}
-                            alt={`Product ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          
-                          {image.is_primary && (
-                            <div className="absolute top-2 left-2 bg-[#29d4c5] text-white px-2 py-1 rounded text-xs font-semibold">
-                              Primary
-                            </div>
-                          )}
-                          
-                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                            {!image.is_primary && (
-                              <button
-                                type="button"
-                                onClick={() => setPrimaryImage(index)}
-                                className="p-1 bg-[#29d4c5] text-white rounded text-xs"
-                              >
-                                Set Primary
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => removeImage(index)}
-                              className="p-1 bg-red-500 text-white rounded"
-                            >
-                              <TrashIcon className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-
-              {/* Features */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 shadow-lg"
-              >
-                <h2 className="text-xl font-semibold text-white mb-4">Features & Options</h2>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        name="has_3d_model"
-                        checked={formData.has_3d_model}
-                        onChange={handleInputChange}
-                        className="rounded border-white/30 bg-white/10 text-[#29d4c5] focus:ring-[#29d4c5]"
-                      />
-                      <CubeIcon className="h-5 w-5 text-[#29d4c5]" />
-                      <span className="text-white">Has 3D Model</span>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        name="has_ar_model"
-                        checked={formData.has_ar_model}
-                        onChange={handleInputChange}
-                        className="rounded border-white/30 bg-white/10 text-[#29d4c5] focus:ring-[#29d4c5]"
-                      />
-                      <DevicePhoneMobileIcon className="h-5 w-5 text-[#29d4c5]" />
-                      <span className="text-white">Has AR Model</span>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        name="is_active"
-                        checked={formData.is_active}
-                        onChange={handleInputChange}
-                        className="rounded border-white/30 bg-white/10 text-[#29d4c5] focus:ring-[#29d4c5]"
-                      />
-                      <CheckCircleIcon className="h-5 w-5 text-[#29d4c5]" />
-                      <span className="text-white">Active (Visible to customers)</span>
-                    </label>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </div>
-
-          {/* Dimensions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 shadow-lg mt-8"
+  // Check if user is authenticated (user is false when not authenticated, null when loading)
+  if (user === false) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa] flex items-center justify-center">
+        <div className="text-center">
+          <ExclamationTriangleIcon className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
+          <p className="text-white text-lg mb-4">Please log in to access this page</p>
+          <button 
+            onClick={() => navigate('/login')} 
+            className="px-6 py-3 bg-[#29d4c5] text-white rounded-lg hover:bg-[#209aaa] transition-colors"
           >
-            <h2 className="text-xl font-semibold text-white mb-4">Dimensions</h2>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">
-                  Width (inches)
-                </label>
-                <input
-                  type="number"
-                  name="dimensions.width"
-                  value={formData.dimensions.width}
-                  onChange={handleInputChange}
-                  min="0"
-                  step="0.1"
-                  className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                  placeholder="0.0"
-                />
-              </div>
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">
-                  Height (inches)
-                </label>
-                <input
-                  type="number"
-                  name="dimensions.height"
-                  value={formData.dimensions.height}
-                  onChange={handleInputChange}
-                  min="0"
-                  step="0.1"
-                  className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                  placeholder="0.0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">
-                  Depth (inches)
-                </label>
-                <input
-                  type="number"
-                  name="dimensions.depth"
-                  value={formData.dimensions.depth}
-                  onChange={handleInputChange}
-                  min="0"
-                  step="0.1"
-                  className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                  placeholder="0.0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">
-                  Weight (lbs)
-                </label>
-                <input
-                  type="number"
-                  name="dimensions.weight"
-                  value={formData.dimensions.weight}
-                  onChange={handleInputChange}
-                  min="0"
-                  step="0.1"
-                  className="w-full p-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                  placeholder="0.0"
-                />
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Materials, Colors, Tags */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 shadow-lg mt-8"
-          >
-            <h2 className="text-xl font-semibold text-white mb-4">Materials, Colors & Tags</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Materials */}
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">
-                  Materials
-                </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={newMaterial}
-                    onChange={(e) => setNewMaterial(e.target.value)}
-                    className="flex-1 p-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                    placeholder="Add material"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => addArrayItem('materials', newMaterial, setNewMaterial)}
-                    className="p-2 bg-[#29d4c5] text-white rounded-lg hover:bg-[#209aaa]"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {formData.materials.map((material, index) => (
-                    <span
-                      key={index}
-                      className="bg-[#29d4c5]/20 text-[#29d4c5] px-2 py-1 rounded text-sm flex items-center gap-1"
-                    >
-                      {material}
-                      <button
-                        type="button"
-                        onClick={() => removeArrayItem('materials', index)}
-                        className="text-red-400 hover:text-red-300"
-                      >
-                        <TrashIcon className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Colors */}
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">
-                  Colors
-                </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={newColor}
-                    onChange={(e) => setNewColor(e.target.value)}
-                    className="flex-1 p-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                    placeholder="Add color"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => addArrayItem('colors', newColor, setNewColor)}
-                    className="p-2 bg-[#29d4c5] text-white rounded-lg hover:bg-[#209aaa]"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {formData.colors.map((color, index) => (
-                    <span
-                      key={index}
-                      className="bg-[#29d4c5]/20 text-[#29d4c5] px-2 py-1 rounded text-sm flex items-center gap-1"
-                    >
-                      {color}
-                      <button
-                        type="button"
-                        onClick={() => removeArrayItem('colors', index)}
-                        className="text-red-400 hover:text-red-300"
-                      >
-                        <TrashIcon className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tags */}
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">
-                  Tags
-                </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    className="flex-1 p-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-[#b6cacb] focus:ring-2 focus:ring-[#29d4c5] focus:border-transparent"
-                    placeholder="Add tag"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => addArrayItem('tags', newTag, setNewTag)}
-                    className="p-2 bg-[#29d4c5] text-white rounded-lg hover:bg-[#209aaa]"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {formData.tags.map((tag, index) => (
-                    <span
-                      key={index}
-                      className="bg-[#29d4c5]/20 text-[#29d4c5] px-2 py-1 rounded text-sm flex items-center gap-1"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => removeArrayItem('tags', index)}
-                        className="text-red-400 hover:text-red-300"
-                      >
-                        <TrashIcon className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Submit Buttons */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="flex justify-end gap-4 mt-8"
-          >
-            <button
-              type="button"
-              onClick={() => navigate('/vendor-dashboard')}
-              className="px-6 py-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
-            >
-              Cancel
-            </button>
-            
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="px-8 py-3 bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white rounded-lg hover:shadow-lg transition-all duration-200 disabled:opacity-50 flex items-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <CheckCircleIcon className="h-5 w-5" />
-                  {productId ? 'Update Product' : 'Create Product'}
-                </>
-              )}
-            </button>
-          </motion.div>
-        </form>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#b6cacb] via-[#29d4c5] to-[#209aaa] py-12">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">        <UploadItemForm
+          formData={formData}
+          setFormData={setFormData}
+          uploadFiles={uploadFiles}
+          handleInputChange={handleInputChange}
+          handleArrayInputChange={handleArrayInputChange}
+          handleFileUpload={handleFileUpload}
+          submitListing={submitListing}
+          loading={isLoading}
+          categories={categories}
+          isEditMode={!!productId}
+          existingImages={images}
+          onRemoveExistingImage={handleRemoveExistingImage}
+          onSetPrimaryImage={handleSetPrimaryImage}
+        />
       </div>
     </div>
   );
