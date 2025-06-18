@@ -623,8 +623,7 @@ app.post('/api/furniture/:id/view', async (req, res) => {
 
 // Create new furniture (all authenticated users can sell)
 app.post('/api/furniture', requireAuth, async (req, res) => {
-  try {
-    const {
+  try {    const {
       title,
       description,
       short_description,
@@ -641,8 +640,11 @@ app.post('/api/furniture', requireAuth, async (req, res) => {
       warranty_info,
       inventory_count,
       min_order_quantity,
-      max_order_quantity
-    } = req.body;
+      max_order_quantity,
+      status = 'draft'    } = req.body;
+    
+    // Log the status for debugging
+    console.log('Creating furniture with status:', status);
     
     // Generate slug from title
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -669,11 +671,10 @@ app.post('/api/furniture', requireAuth, async (req, res) => {
         features,
         care_instructions,
         assembly_required: Boolean(assembly_required),
-        warranty_info,
-        inventory_count: parseInt(inventory_count) || 0,
+        warranty_info,        inventory_count: parseInt(inventory_count) || 0,
         min_order_quantity: parseInt(min_order_quantity) || 1,
         max_order_quantity: parseInt(max_order_quantity) || 10,
-        status: 'draft'
+        status: status || 'draft'
       }])
       .select()
       .single();
@@ -1602,14 +1603,33 @@ app.get('/api/vendor/dashboard', requireAuth, async (req, res) => {
       .gte('orders.created_at', startOfMonth.toISOString());
 
     const salesThisMonth = monthlyOrders?.length || 0;
-    const revenueThisMonth = monthlyOrders?.reduce((sum, item) => sum + parseFloat(item.total_price || 0), 0) || 0;
-
-    // Get active listings
+    const revenueThisMonth = monthlyOrders?.reduce((sum, item) => sum + parseFloat(item.total_price || 0), 0) || 0;    // Get active listings
     const { count: activeListings } = await supabase
       .from('furniture')
       .select('*', { count: 'exact', head: true })
       .eq('vendor_id', userId)
       .eq('status', 'active');
+
+    // Get draft listings
+    const { count: draftListings } = await supabase
+      .from('furniture')
+      .select('*', { count: 'exact', head: true })
+      .eq('vendor_id', userId)
+      .eq('status', 'draft');
+
+    // Get archived listings
+    const { count: archivedListings } = await supabase
+      .from('furniture')
+      .select('*', { count: 'exact', head: true })
+      .eq('vendor_id', userId)
+      .eq('status', 'archived');
+
+    // Get out of stock listings (inventory_count = 0)
+    const { count: outOfStockListings } = await supabase
+      .from('furniture')
+      .select('*', { count: 'exact', head: true })
+      .eq('vendor_id', userId)
+      .eq('inventory_count', 0);
 
     // Get pending 3D model generations
     const { count: pending3DModels } = await supabase
@@ -1638,16 +1658,19 @@ app.get('/api/vendor/dashboard', requireAuth, async (req, res) => {
 
     res.json({
       success: true,
-      data: {
-        stats: {
+      data: {        stats: {
           totalListings: totalListings || 0,
           totalViews: totalViews || 0,
           salesThisMonth: salesThisMonth || 0,
           revenue: revenueThisMonth || 0,
           activeListings: activeListings || 0,
+          draftListings: draftListings || 0,
+          archivedListings: archivedListings || 0,
+          outOfStockListings: outOfStockListings || 0,
           pending3DModels: pending3DModels || 0,
           viewsLast30Days: viewsLast30Days || 0,
-          conversionRate: Math.round(conversionRate * 100) / 100
+          conversionRate: Math.round(conversionRate * 100) / 100,
+          averageRating: 4.5 // TODO: Calculate actual average rating from reviews
         }
       }
     });
@@ -1886,9 +1909,8 @@ app.get('/api/vendor/analytics', requireAuth, async (req, res) => {
           engagementByDay: Object.entries(engagementByDay).map(([date, data]) => ({
             date,
             ...data
-          })).sort((a, b) => a.date.localeCompare(b.date))
-        },
-        productPerformance: productPerformance.sort((a, b) => b.revenue - a.revenue),
+          })).sort((a, b) => a.date.localeCompare(b.date))        },
+        productPerformance: productPerformance.sort((a, b) => b.views - a.views),
         categoryPerformance: Object.entries(categoryPerformance).map(([category, data]) => ({
           category,
           ...data
@@ -2058,7 +2080,8 @@ app.post('/api/photogrammetry/reconstruct', requireAuth, async (req, res) => {
     }
     
     // Check if the furniture exists and belongs to the authenticated user
-    const { data: furniture, error: checkError } = await supabase      .from('furniture')
+    const { data: furniture, error: checkError } = await supabase
+      .from('furniture')
       .select('id, vendor_id, title')
       .eq('id', furnitureId)
       .eq('vendor_id', req.user.id) // Ensure user owns the furniture
@@ -2071,10 +2094,10 @@ app.post('/api/photogrammetry/reconstruct', requireAuth, async (req, res) => {
       });
     }
     
-    // Get the video URL for this furniture
+    // Get the video asset for this furniture (we need the asset ID and URL)
     const { data: videoAsset, error: videoError } = await supabase
       .from('media_assets')
-      .select('url')
+      .select('id, url')
       .eq('furniture_id', furnitureId)
       .eq('type', 'video')
       .order('created_at', { ascending: false })
@@ -2086,68 +2109,56 @@ app.post('/api/photogrammetry/reconstruct', requireAuth, async (req, res) => {
         success: false, 
         message: 'No video found for this furniture item' 
       });
-    }    // Check if there's already a pending or processing job for this furniture
+    }
+
+    // Check if there's already ANY job for this furniture + video combination
     const { data: existingJob, error: jobCheckError } = await supabase
       .from('model_generation_jobs')
       .select('id, status, video_asset_id')
       .eq('furniture_id', furnitureId)
-      .in('status', ['pending', 'processing'])
+      .eq('video_asset_id', videoAsset.id)
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
 
     if (!jobCheckError && existingJob) {
-      return res.status(409).json({ 
-        success: false, 
-        message: 'A 3D reconstruction job is already in progress for this furniture item',
-        existingJobId: existingJob.id
-      });
+      // Handle different existing job statuses
+      if (existingJob.status === 'completed') {
+        return res.status(200).json({ 
+          success: true, 
+          message: '3D model already exists for this furniture item',
+          jobId: existingJob.id,
+          status: 'completed'
+        });
+      }
+      
+      if (existingJob.status === 'processing' || existingJob.status === 'pending') {
+        return res.status(409).json({ 
+          success: false, 
+          message: 'A 3D reconstruction job is already in progress for this furniture item',
+          jobId: existingJob.id,
+          status: existingJob.status
+        });
+      }
+      
+      // If job failed, we can proceed to retry (but don't create a new job, let reconstructFurniture handle it)
     }
 
-    // Create a new reconstruction job
-    const { data: newJob, error: createJobError } = await supabase
-      .from('model_generation_jobs')
-      .insert([{
-        furniture_id: furnitureId,
-        video_url: videoAsset.url,
-        status: 'pending',
-        progress_percentage: 0
-      }])
-      .select()
-      .single();
-
-    if (createJobError) {
-      console.error('Error creating reconstruction job:', createJobError);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Failed to create reconstruction job' 
-      });
-    }
-
-    console.log(`Created 3D reconstruction job for furniture: "${furniture.title}" (ID: ${furnitureId}) by user: ${req.user.id}`);
-      // Start the reconstruction process (this would typically be async)
-    try {
-      await reconstructFurniture(furnitureId);
-    } catch (reconstructError) {
-      console.error('Error starting reconstruction:', reconstructError);
-      // Update job status to failed
-      await supabase
-        .from('model_generation_jobs')
-        .update({ 
-          status: 'failed', 
-          error_message: 'Failed to start reconstruction process',
-          error_code: 'RECONSTRUCTION_START_ERROR'
-        })
-        .eq('id', newJob.id);
-    }
+    console.log(`Starting 3D reconstruction for furniture: "${furniture.title}" (ID: ${furnitureId}) by user: ${req.user.id}`);
     
+    // Let reconstructFurniture handle ALL job management
+    // This runs synchronously in the request to provide immediate feedback
+    await reconstructFurniture(furnitureId);
+    
+    // If we get here, reconstruction was successful
     res.json({ 
       success: true, 
-      message: '3D model reconstruction started successfully',
+      message: '3D model reconstruction completed successfully',
       furnitureId: furnitureId,
-      furnitureTitle: furniture.title,
-      jobId: newJob.id
-    });} catch (error) {
+      furnitureTitle: furniture.title
+    });
+
+  } catch (error) {
     console.error('Reconstruction error:', error);
     console.error('Error details:', {
       furnitureId: req.body.furnitureId,
@@ -2156,9 +2167,10 @@ app.post('/api/photogrammetry/reconstruct', requireAuth, async (req, res) => {
       errorMessage: error.message,
       errorStack: error.stack
     });
+    
     res.status(500).json({ 
       success: false, 
-      message: 'Internal server error during 3D reconstruction',
+      message: 'Failed to complete 3D reconstruction',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

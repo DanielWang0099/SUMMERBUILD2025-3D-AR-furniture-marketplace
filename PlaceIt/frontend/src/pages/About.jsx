@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useSmoothNavigation } from '../hooks/useSmoothNavigation';
 import { 
   CubeIcon, 
   CameraIcon, 
@@ -11,30 +10,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 const About = () => {
-  const { isAuthenticated } = useApp();
-  const navigate = useNavigate();  const handleNavigation = (path) => {
-    if (!isAuthenticated) {
-      // Check if we're already at the top (within 100px threshold)
-      const isNearTop = window.scrollY <= 100;
-      
-      if (isNearTop) {
-        // No need to scroll, redirect instantly
-        navigate('/login');
-      } else {
-        // Smooth scroll to top before navigating to login
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        });
-        
-        // Wait for scroll animation to complete before navigating
-        setTimeout(() => {
-          navigate('/login');
-        }, 800);
-      }
-    } else {
-      navigate(path);
-    }
+  const { smoothNavigate } = useSmoothNavigation();  const handleNavigation = (path) => {
+    smoothNavigate(path);
   };
 
   const stats = [

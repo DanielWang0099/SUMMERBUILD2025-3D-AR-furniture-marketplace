@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useApp } from '../context/AppContext';
+import { useSmoothNavigation } from '../hooks/useSmoothNavigation';
 import { 
   CubeIcon, 
   CameraIcon, 
@@ -13,30 +13,8 @@ import {
 
 const Home = () => {
   const [playingVideo, setPlayingVideo] = useState(false);
-  const { isAuthenticated } = useApp();
-  const navigate = useNavigate();  const handleNavigation = (path) => {
-    if (!isAuthenticated) {
-      // Check if we're already at the top (within 100px threshold)
-      const isNearTop = window.scrollY <= 100;
-      
-      if (isNearTop) {
-        // No need to scroll, redirect instantly
-        navigate('/login');
-      } else {
-        // Smooth scroll to top before navigating to login
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        });
-        
-        // Shorter delay since buttons are higher up on the page
-        setTimeout(() => {
-          navigate('/login');
-        }, 400);
-      }
-    } else {
-      navigate(path);
-    }
+  const { smoothNavigate } = useSmoothNavigation();  const handleNavigation = (path) => {
+    smoothNavigate(path);
   };
 
   const features = [

@@ -1,15 +1,23 @@
 import {useState, useEffect} from 'react';
+import { useLocation } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
 
 const Layout = ({ children }) => {
   const [showScrollTop, setShowScrollTop]=useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY >300);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Scroll to top when route changes (page navigation)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   const handleScrollTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
