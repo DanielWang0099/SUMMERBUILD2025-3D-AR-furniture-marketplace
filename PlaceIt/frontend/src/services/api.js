@@ -119,6 +119,13 @@ class ApiService {
     return this.request(`/furniture/${id}`);
   }
 
+  // Increment view count for a furniture item
+  async incrementViewCount(id) {
+    return this.request(`/furniture/${id}/view`, {
+      method: 'POST',
+    });
+  }
+
   async createFurniture(furnitureData) {
     return this.request('/furniture', {
       method: 'POST',
@@ -258,17 +265,9 @@ class ApiService {
     return this.request(endpoint);
   }
 
-  async generate3DModel(furnitureId, videoUrl) {
-    return this.request(`/vendor/furniture/${furnitureId}/generate-3d`, {
-      method: 'POST',
-      body: JSON.stringify({
-        video_url: videoUrl,
-      }),
-    });
-  }
-
   // New method for calling photogrammetry/reconstruct endpoint
   async reconstructFurniture(furnitureId) {
+    console.log('%c🔥 DEBUG: reconstructFurniture function called!', 'font-size: 20px; color: limegreen; background: black; padding: 10px;');
     return this.request('/photogrammetry/reconstruct', {
       method: 'POST',
       body: JSON.stringify({

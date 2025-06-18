@@ -38,11 +38,10 @@ const Sell = () => {
     short_description: '',
     dimensions: { height: '', width: '', depth: '', unit: 'inches' },
     materials: [],
-    colors: [],
-    features: [],
+    colors: [],    features: [],
     inventory_count: 1,
 
-    status: 'draft',
+    status: 'active',
     // Add checkbox state for 3D model generation
     generate3D: false
   });
@@ -52,10 +51,9 @@ const Sell = () => {
   const [uploadFiles, setUploadFiles] = useState({
     images: [],
     video: null
-  });
-  const [reconstructionJobs, setReconstructionJobs] = useState([]);
+  });  const [reconstructionJobs, setReconstructionJobs] = useState([]);
   const [recommendations, setRecommendations] = useState(null);
-
+  const [isRequestingReconstruction, setIsRequestingReconstruction] = useState(false);
   // Destructure showToast from useApp() context
   const { user, showToast } = useApp();
 
@@ -65,43 +63,8 @@ const Sell = () => {
   //   setTimeout(() => setToast(null), 5000);
   // }, []);
 
-  useEffect(() => {
-    if (user) {
-      fetchDashboardData();
-      fetchCategories();
-    }
-  }, [user]);
-  useEffect(() => {
-    if (activeTab === 'listings') {
-      fetchListings();
-    } else if (activeTab === 'analytics') {
-      fetchAnalytics();
-    }    // Also fetch data when dashboard is active or component mounts
-    if (activeTab === 'dashboard') {
-        fetchRecommendations();
-        fetchReconstructionJobs();
-        fetchListings(); // Fetch listings for top performing products section
-    }
-  }, [activeTab]);
-
-  // Auto-refresh reconstruction jobs every 30 seconds when dashboard is active
-  useEffect(() => {
-    let interval = null;
-    if (activeTab === 'dashboard') {
-      interval = setInterval(() => {
-        fetchReconstructionJobs();
-      }, 30000); // Refresh every 30 seconds
-    }
-    
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [activeTab]);
-
-
-  const fetchDashboardData = async () => {
+  // Define all callback functions first
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiService.getVendorStats();
@@ -113,11 +76,10 @@ const Sell = () => {
     } finally {
       setLoading(false);
     }
-  };
-
+  }, [showToast]);
 
   // Added options to allow period selection
-  const fetchAnalytics = async (options = {}) => {
+  const fetchAnalytics = useCallback(async (options = {}) => {
     // Default to 30 days
     const { period = '30' } = options;
     try {
@@ -131,9 +93,9 @@ const Sell = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
-  const fetchListings = async () => {
+  const fetchListings = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiService.getVendorFurniture();
@@ -145,9 +107,9 @@ const Sell = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const response = await apiService.getCategories();
       if (response.success) {
@@ -156,9 +118,9 @@ const Sell = () => {
     } catch (error) {
       console.error('Failed to load categories');
     }
-  };
+  }, []);
 
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = useCallback(async () => {
     try {
       const response = await apiService.getVendorRecommendations();
       if (response.success) {
@@ -167,9 +129,9 @@ const Sell = () => {
     } catch (error) {
       console.error('Failed to load recommendations');
     }
-  };
+  }, []);
 
-  const fetchReconstructionJobs = async () => {
+  const fetchReconstructionJobs = useCallback(async () => {
     try {
       const response = await apiService.getReconstructionJobs();
       if (response.success) {
@@ -178,7 +140,42 @@ const Sell = () => {
     } catch (error) {
       console.error('Failed to load reconstruction jobs');
     }
-  };
+  }, []);
+
+  // Now define the useEffect hooks
+  useEffect(() => {
+    if (user) {
+      fetchDashboardData();
+      fetchCategories();
+    }
+  }, [user, fetchDashboardData, fetchCategories]);
+
+  useEffect(() => {
+    if (activeTab === 'listings') {
+      fetchListings();
+    } else if (activeTab === 'analytics') {
+      fetchAnalytics();
+    }    // Also fetch data when dashboard is active or component mounts
+    if (activeTab === 'dashboard') {
+        fetchRecommendations();
+        fetchReconstructionJobs();
+        fetchListings(); // Fetch listings for top performing products section
+    }
+  }, [activeTab, fetchListings, fetchAnalytics, fetchRecommendations, fetchReconstructionJobs]);
+  // Auto-refresh reconstruction jobs every 30 seconds when dashboard is active
+  useEffect(() => {
+    let interval = null;
+    if (activeTab === 'dashboard') {
+      interval = setInterval(() => {
+        fetchReconstructionJobs();
+      }, 30000); // Refresh every 30 seconds
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };  }, [activeTab, fetchReconstructionJobs]);
 
   const handleInputChange = useCallback((field, value) => {
     if (field.includes('.')) {
@@ -211,15 +208,26 @@ const Sell = () => {
       ...prev,
       [type]: type === 'images' ? Array.from(files) : files[0]
     }));
-  }, []);
-
-  const submitListing = useCallback(async (e) => {
+  }, []);  const submitListing = useCallback(async (e, statusOverride = null) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (loading) {
+      console.warn('Submission already in progress, ignoring duplicate request');
+      return;
+    }
+    
     try {
       setLoading(true);
 
+      // Create form data with status override if provided
+      const submissionData = {
+        ...formData,
+        status: statusOverride || formData.status
+      };
+
       // First create the furniture listing
-      const furnitureResponse = await apiService.createFurniture(formData);
+      const furnitureResponse = await apiService.createFurniture(submissionData);
       if (!furnitureResponse.success) {
         throw new Error(furnitureResponse.message);
       }
@@ -232,34 +240,46 @@ const Sell = () => {
         for (const image of uploadFiles.images) {
           await apiService.uploadMedia(image, furnitureId, 'image');
         }
-      }
-
-      // Upload video and handle 3D model generation
+      }      // Upload video and handle 3D model generation
       if (uploadFiles.video) {
         const videoResponse = await apiService.uploadMedia(uploadFiles.video, furnitureId, 'video');
-        if (videoResponse.success) {
-          // Check if user wants 3D model generated
+        if (videoResponse.success) {          // Check if user wants 3D model generated
           if (formData.generate3D) {
-            try {
-              // Call the new photogrammetry/reconstruct endpoint
-              const reconstructResponse = await apiService.reconstructFurniture(furnitureId);
-              if (reconstructResponse.success) {
+            // Prevent duplicate reconstruction requests
+            if (isRequestingReconstruction) {
+              console.warn('3D reconstruction already in progress, skipping duplicate request');
+              showToast({ 
+                message: 'Video uploaded successfully! 3D reconstruction is already in progress.', 
+                type: 'success' 
+              });
+            } else {
+              try {
+                setIsRequestingReconstruction(true);
+                console.log('Starting 3D reconstruction for furniture ID:', furnitureId);
+                // Call the new photogrammetry/reconstruct endpoint
+                const reconstructResponse = await apiService.reconstructFurniture(furnitureId);
+                if (reconstructResponse.success) {
+                  console.log('3D reconstruction started successfully:', reconstructResponse);
+                  showToast({ 
+                    message: '3D model generation started! Check the dashboard to monitor progress.', 
+                    type: 'success' 
+                  });
+                } else {
+                  console.error('3D reconstruction failed:', reconstructResponse);
+                  showToast({ 
+                    message: 'Failed to start 3D model generation: ' + reconstructResponse.message, 
+                    type: 'warning' 
+                  });
+                }
+              } catch (error) {
+                console.error('3D reconstruction error:', error);
                 showToast({ 
-                  message: '3D model generation started! Check the dashboard to monitor progress.', 
-                  type: 'success' 
-                });
-              } else {
-                showToast({ 
-                  message: 'Failed to start 3D model generation: ' + reconstructResponse.message, 
+                  message: 'Failed to start 3D model generation. Video was uploaded successfully.', 
                   type: 'warning' 
                 });
+              } finally {
+                setIsRequestingReconstruction(false);
               }
-            } catch (error) {
-              console.error('3D reconstruction error:', error);
-              showToast({ 
-                message: 'Failed to start 3D model generation. Video was uploaded successfully.', 
-                type: 'warning' 
-              });
             }
           } else {
             showToast({ 
@@ -288,21 +308,22 @@ const Sell = () => {
         features: [],
         inventory_count: 1,
         status: 'draft',
-        generate3D: false
-      });        setUploadFiles({ images: [], video: null });      // Update data and navigate to listings
+        generate3D: false      });        setUploadFiles({ images: [], video: null });      
+      setIsRequestingReconstruction(false); // Reset reconstruction flag
+      
+      // Update data and navigate to listings
       await fetchListings();
       // Also refresh reconstruction jobs if user added a 3D generation
       if (formData.generate3D) {
         await fetchReconstructionJobs();
       }
-      setActiveTab('listings');
-
-    } catch (error) {
+      setActiveTab('listings');    } catch (error) {
       showToast({ message: error.message || 'Failed to create listing', type: 'error' });
     } finally {
       setLoading(false);
+      setIsRequestingReconstruction(false); // Reset reconstruction flag on any error
     }
-  }, [formData, uploadFiles, showToast, fetchListings]);
+  }, [formData, uploadFiles, showToast, fetchListings, fetchReconstructionJobs]);
 
   const deleteListing = async (id) => {
     // Replaced window.confirm with a modal or custom UI for better user experience
@@ -472,7 +493,7 @@ const Sell = () => {
                     className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-6 shadow-lg"
                   >
                     <h3 className="text-xl font-semibold text-[#0c1825] mb-6">Top Performing Products</h3>                    <div className="space-y-4">
-                      {listings.slice(0, 4).map((item, index) => (
+                      {[...listings].sort((a, b) => (b.view_count || 0) - (a.view_count || 0)).slice(0, 4).map((item, index) => (
                         <div key={item.id} className="flex items-center justify-between p-4 bg-white/40 backdrop-blur-sm border border-[#29d4c5]/10 rounded-lg hover:bg-white/60 transition-all duration-200">
                           <div className="flex items-center gap-4">
                             <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-[#29d4c5] to-[#209aaa] rounded-lg text-white font-bold text-lg">
@@ -725,7 +746,8 @@ const Sell = () => {
         )}
 
         {/* Upload Tab */}
-        {activeTab === 'upload' && (          <UploadItemForm
+        {activeTab === 'upload' && (          
+          <UploadItemForm
             formData={formData}
             setFormData={setFormData}
             uploadFiles={uploadFiles}

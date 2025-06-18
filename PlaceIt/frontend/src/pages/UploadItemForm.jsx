@@ -5,15 +5,26 @@ import LoadingSpinner from '../components/UI/LoadingSpinner'; // Adjust path as 
 
 const UploadItemForm = React.memo(({
   formData,
-  setFormData, // Pass setFormData directly if you prefer, or handleInputChange as is
+  setFormData,
   uploadFiles,
   handleInputChange,
   handleArrayInputChange,
   handleFileUpload,
   submitListing,
   loading,
-  categories // Pass categories as a prop
+  categories
 }) => {
+  // Handle publish listing - sets status to active before submitting
+  const handlePublishListing = useCallback((e) => {
+    e.preventDefault();
+    submitListing(e, 'active');
+  }, [submitListing]);
+
+  // Handle save as draft - sets status to draft before submitting
+  const handleSaveAsDraft = useCallback((e) => {
+    e.preventDefault();
+    submitListing(e, 'draft');
+  }, [submitListing]);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -22,7 +33,7 @@ const UploadItemForm = React.memo(({
     >
       <h3 className="text-2xl font-bold text-[#0c1825] mb-6">Add New Furniture Item</h3>
 
-      <form onSubmit={submitListing} className="space-y-6">
+      <form className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-[#0c1825] mb-2">
@@ -318,22 +329,22 @@ const UploadItemForm = React.memo(({
               </div>
             </div>
           </div>
-        )}
-
-        <div className="flex space-x-4">          <button
-            type="submit"
+        )}        <div className="flex space-x-4">          <button
+            type="button"
+            onClick={handlePublishListing}
             disabled={loading}
             className="bg-gradient-to-r from-[#29d4c5] to-[#209aaa] text-white px-8 py-3 rounded-lg hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
           >
             {loading ? <LoadingSpinner size="sm" /> : <PlusIcon className="h-5 w-5" />}
-            <span>{loading ? 'Creating...' : 'Publish Listing'}</span>
+            <span>{loading ? 'Publishing...' : 'Publish Listing'}</span>
           </button>
           <button
             type="button"
-            onClick={() => setFormData(prev => ({ ...prev, status: 'draft' }))}
-            className="bg-white/80 border border-[#29d4c5]/30 text-[#0c1825] px-8 py-3 rounded-lg hover:bg-[#29d4c5]/20 transition-colors"
+            onClick={handleSaveAsDraft}
+            disabled={loading}
+            className="bg-white/80 border border-[#29d4c5]/30 text-[#0c1825] px-8 py-3 rounded-lg hover:bg-[#29d4c5]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save as Draft
+            {loading ? 'Saving...' : 'Save as Draft'}
           </button>
         </div>
       </form>
