@@ -119,6 +119,13 @@ class ApiService {
     return this.request(`/furniture/${id}`);
   }
 
+  // Increment view count for a furniture item
+  async incrementViewCount(id) {
+    return this.request(`/furniture/${id}/view`, {
+      method: 'POST',
+    });
+  }
+
   async createFurniture(furnitureData) {
     return this.request('/furniture', {
       method: 'POST',

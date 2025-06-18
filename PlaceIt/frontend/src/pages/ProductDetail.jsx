@@ -33,10 +33,8 @@ const ProductDetail = () => {
   const [show3D, setShow3D] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [addingToCart, setAddingToCart] = useState(false);
-  // Fetch product data
-  useEffect(() => {
-    const fetchProduct = async () => {
+  const [addingToCart, setAddingToCart] = useState(false);  // Fetch product data
+  useEffect(() => {    const fetchProduct = async () => {
       try {
         setIsLoading(true);
         const response = await apiService.getFurnitureById(id);
@@ -48,34 +46,50 @@ const ProductDetail = () => {
           throw new Error(response.message || 'Failed to load product');
         }
       } catch (err) {
+        console.error('Error fetching product:', err);
         setError(err.message || 'Failed to load product');
         showToast({ type: 'error', message: err.message || 'Failed to load product' });
-        console.error('Error fetching product:', err);
       } finally {
         setIsLoading(false);
       }
-    };
-
-    const fetchReviews = async () => {
+    };    const fetchReviews = async () => {
       try {
         const response = await apiService.getReviews(id);
+        
         if (response.success) {
           setReviews(response.data || []);
         } else {
-          console.warn('No reviews found or error fetching reviews');
+          console.warn('No reviews found or error fetching reviews:', response.message);
           setReviews([]);
         }
       } catch (err) {
         console.error('Error fetching reviews:', err);
         setReviews([]);
+        // Don't show toast for reviews error, as it's not critical
+      }
+    };if (id) {
+      fetchProduct();
+      // Fetch reviews separately and don't let it block the main product loading
+      fetchReviews().catch(err => {
+        console.warn('Reviews fetch failed, but continuing with product display:', err);
+      });
+    }
+  }, [id]);
+
+  // Increment view count only once when component mounts
+  useEffect(() => {
+    const incrementView = async () => {
+      if (id) {
+        try {
+          await apiService.incrementViewCount(id);
+        } catch (err) {
+          console.warn('Failed to increment view count:', err);
+        }
       }
     };
 
-    if (id) {
-      fetchProduct();
-      fetchReviews();
-    }
-  }, [id]);
+    incrementView();
+  }, [id]); // This will run only when the id changes
   const handleAddToCart = async () => {
     try {
       setAddingToCart(true);
@@ -105,7 +119,9 @@ const ProductDetail = () => {
     }
   };
 
-  const isFavorite = favorites.some(fav => fav.furniture.id === product?.id);
+  const isFavorite = favorites.some(fav => 
+    (fav.furniture?.id === product?.id) || (fav.furniture_id === product?.id)
+  );
   const images = product?.media_assets?.filter(asset => asset.type === 'image') || [];
   const primaryImage = images.find(img => img.is_primary) || images[0];
   const averageRating = product?.average_rating || 0;
@@ -428,9 +444,7 @@ const ProductDetail = () => {
                   </div>
                 </div>
               </div>
-            )}
-
-            {activeTab === 'reviews' && (
+            )}            {activeTab === 'reviews' && (
               <div className="space-y-6">
                 {reviews.length > 0 ? (
                   reviews.map((review) => (
@@ -438,10 +452,10 @@ const ProductDetail = () => {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-[#29d4c5] rounded-full flex items-center justify-center text-white font-semibold">
-                            {review.user.name[0]}
+                            {review.users?.name?.[0] || review.user?.name?.[0] || 'U'}
                           </div>
                           <div>
-                            <p className="text-white font-medium">{review.user.name}</p>
+                            <p className="text-white font-medium">{review.users?.name || review.user?.name || 'Anonymous User'}</p>
                             <div className="flex items-center gap-1">
                               {[...Array(5)].map((_, i) => (
                                 <StarIcon

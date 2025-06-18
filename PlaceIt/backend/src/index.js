@@ -77,6 +77,7 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'PlaceIt Backend API is running!',
     version: '2.0.0',
+    timestamp: new Date().toISOString(),
     features: [
       'Complete furniture marketplace',
       'User authentication & authorization',
@@ -85,50 +86,75 @@ app.get('/', (req, res) => {
       'Advanced search & filtering',
       'Seller dashboard & analytics',
       'Shopping cart & checkout',
-      'Reviews & ratings system'
+      'Reviews & ratings system',
+      'Photogrammetry reconstruction',
+      'Media upload & management'
     ],
     endpoints: {
       auth: [
-        'POST /api/auth/register',
-        'POST /api/auth/login',
-        'GET /api/auth/profile',
-        'PUT /api/auth/profile'
+        'POST /api/auth/register - Register new user',
+        'POST /api/auth/login - User login',
+        'GET /api/auth/profile - Get user profile (authenticated)',
+        'PUT /api/auth/profile - Update user profile (authenticated)',
+        'PUT /api/user/change-password - Change user password (authenticated)',
+        'PUT /api/user/profile - Update user profile alternative (authenticated)'
       ],
       furniture: [
-        'GET /api/furniture - Get all furniture',
-        'GET /api/furniture/:id - Get furniture by ID',        
-        'POST /api/furniture - Create new furniture (authenticated users)',
+        'GET /api/furniture - Get all furniture with filtering and search',
+        'GET /api/furniture/:id - Get furniture by ID',
+        'POST /api/furniture/:id/view - Increment view count',
+        'POST /api/furniture - Create new furniture (authenticated)',
         'PUT /api/furniture/:id - Update furniture (owner only)',
-        'DELETE /api/furniture/:id - Delete furniture (owner only)'
+        'DELETE /api/furniture/:id - Delete furniture (owner only)',
+        'PATCH /api/furniture/:id/status - Update furniture status (owner only)',
+        'PATCH /api/furniture/bulk/:action - Bulk operations on furniture (owner only)'
       ],
       categories: [
-        'GET /api/categories - Get all categories'
+        'GET /api/categories - Get all active categories'
       ],
       cart: [
-        'GET /api/cart - Get user cart',
-        'POST /api/cart - Add item to cart',
-        'PUT /api/cart/:itemId - Update cart item',
-        'DELETE /api/cart/:itemId - Remove from cart'
+        'GET /api/cart - Get user cart (authenticated)',
+        'POST /api/cart - Add item to cart (authenticated)',
+        'PUT /api/cart/:itemId - Update cart item (authenticated)',
+        'DELETE /api/cart/:itemId - Remove from cart (authenticated)'
       ],
       favorites: [
-        'GET /api/favorites - Get user favorites',
-        'POST /api/favorites - Add to favorites',
-        'DELETE /api/favorites/:furnitureId - Remove from favorites'
-      ],
-      reviews: [
+        'GET /api/favorites - Get user favorites (authenticated)',
+        'POST /api/favorites - Add to favorites (authenticated)',
+        'DELETE /api/favorites/:furnitureId - Remove from favorites (authenticated)'
+      ],      reviews: [
         'GET /api/reviews/:furnitureId - Get furniture reviews',
-        'POST /api/reviews - Create review',
-        'PUT /api/reviews/:id - Update review',
-        'DELETE /api/reviews/:id - Delete review'
-      ],      
-      seller: [
-        'GET /api/vendor/dashboard - Get user dashboard data',
-        'GET /api/vendor/furniture - Get user furniture',
-        'GET /api/vendor/analytics - Get user analytics',
+        'POST /api/reviews - Create review (authenticated)',
+        'PUT /api/reviews/:id - Update review (owner only)',
+        'DELETE /api/reviews/:id - Delete review (owner only)'
+      ],
+      vendor: [
+        'GET /api/vendor/dashboard - Get user dashboard data (authenticated)',
+        'GET /api/vendor/furniture - Get user furniture listings (authenticated)',
+        'GET /api/vendor/analytics - Get user analytics (authenticated)',
+        'GET /api/vendor/recommendations - Get recommendations for vendor (authenticated)',
+        'GET /api/vendor/reconstruction-jobs - Get reconstruction jobs (authenticated)'
       ],
       uploads: [
-        'POST /api/uploads/media - Upload media files'
+        'POST /api/uploads/media - Upload media files (authenticated)'
+      ],
+      photogrammetry: [
+        'POST /api/photogrammetry/reconstruct - Process 3D reconstruction (authenticated)'
+      ],
+      ar: [
+        'POST /api/ar/interaction - Log AR interaction'
+      ],
+      development: [
+        'POST /api/dev/seed-demo-data - Seed demo data (development only)'
       ]
+    },
+    notes: {
+      authentication: 'Routes marked with (authenticated) require Bearer token in Authorization header',
+      permissions: 'Routes marked with (owner only) require the authenticated user to own the resource',
+      fileUploads: 'Media upload endpoint accepts images, videos, and 3D models up to 100MB',
+      filtering: 'Furniture endpoint supports category, price range, 3D/AR filters, search, and sorting',
+      rateLimit: 'API implements rate limiting for security',
+      cors: 'CORS is enabled for cross-origin requests'
     }
   });
 });
@@ -523,16 +549,10 @@ app.get('/api/furniture', async (req, res) => {
   }
 });
 
-// Get furniture by ID
+// Get furniture by ID (without incrementing view count)
 app.get('/api/furniture/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Increment view count
-    await supabase
-      .from('furniture')
-      .update({ view_count: supabase.sql`view_count + 1` })
-      .eq('id', id);
     
     const { data: furniture, error } = await supabase
       .from('furniture')
@@ -566,6 +586,37 @@ app.get('/api/furniture/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('Furniture detail error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Increment view count for furniture
+app.post('/api/furniture/:id/view', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Increment view count - first get current count, then increment
+    const { data: currentData } = await supabase
+      .from('furniture')
+      .select('view_count')
+      .eq('id', id)
+      .single();
+    
+    if (currentData) {
+      await supabase
+        .from('furniture')
+        .update({ view_count: (currentData.view_count || 0) + 1 })
+        .eq('id', id);
+      
+      res.json({
+        success: true,
+        data: { view_count: (currentData.view_count || 0) + 1 }
+      });
+    } else {
+      res.status(404).json({ success: false, message: 'Furniture not found' });
+    }
+  } catch (error) {
+    console.error('View count increment error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -1338,6 +1389,7 @@ app.get('/api/reviews/:furnitureId', async (req, res) => {
     
     const offset = (parseInt(page) - 1) * parseInt(limit);
     
+    // First, let's try a simpler query to check if the basic structure works
     const { data: reviews, error, count } = await supabase
       .from('reviews')
       .select(`
@@ -1345,22 +1397,22 @@ app.get('/api/reviews/:furnitureId', async (req, res) => {
         users(name, profile_image)
       `, { count: 'exact' })
       .eq('furniture_id', furnitureId)
-      .eq('is_approved', true)
       .order('created_at', { ascending: false })
       .range(offset, offset + parseInt(limit) - 1);
       
     if (error) {
+      console.error('Reviews query error:', error);
       return res.status(400).json({ success: false, message: error.message });
     }
     
     res.json({
       success: true,
-      data: reviews,
+      data: reviews || [],
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: count,
-        pages: Math.ceil(count / parseInt(limit))
+        total: count || 0,
+        pages: Math.ceil((count || 0) / parseInt(limit))
       }
     });
   } catch (error) {
@@ -1409,6 +1461,98 @@ app.post('/api/reviews', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Review creation error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Update review (owner only)
+app.put('/api/reviews/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rating, title, comment } = req.body;
+    
+    // Check if review exists and user owns it
+    const { data: existingReview, error: checkError } = await supabase
+      .from('reviews')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+    
+    if (checkError || !existingReview) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+    
+    if (existingReview.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized to update this review' });
+    }
+    
+    // Update the review
+    const { data: review, error } = await supabase
+      .from('reviews')
+      .update({
+        rating: parseInt(rating),
+        title,
+        comment,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select(`
+        *,
+        users(name, profile_image)
+      `)
+      .single();
+      
+    if (error) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Review updated successfully',
+      data: review
+    });
+  } catch (error) {
+    console.error('Review update error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Delete review (owner only)
+app.delete('/api/reviews/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if review exists and user owns it
+    const { data: existingReview, error: checkError } = await supabase
+      .from('reviews')
+      .select('user_id, furniture_id')
+      .eq('id', id)
+      .single();
+    
+    if (checkError || !existingReview) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+    
+    if (existingReview.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this review' });
+    }
+    
+    // Delete the review
+    const { error } = await supabase
+      .from('reviews')
+      .delete()
+      .eq('id', id);
+      
+    if (error) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Review deleted successfully'
+    });
+  } catch (error) {
+    console.error('Review deletion error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
