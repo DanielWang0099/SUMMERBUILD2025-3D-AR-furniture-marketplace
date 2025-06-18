@@ -23,6 +23,7 @@ const Browse = () => {
   const [priceRange, setPriceRange] = useState([0, 5000]);
   const [showFilters, setShowFilters] = useState(false);
   const [addingToCart, setAddingToCart] = useState(null);
+  const [togglingFavorite, setTogglingFavorite] = useState(null);
   const [show3DOnly, setShow3DOnly] = useState(false);
   const [showAROnly, setShowAROnly] = useState(false);
   const [sortBy, setSortBy] = useState('featured');
@@ -60,35 +61,44 @@ const Browse = () => {
       } finally {
         setIsLoading(false);
       }
-    };
-
-    fetchFurniture();
-  }, [searchTerm, selectedCategory, priceRange, show3DOnly, showAROnly, sortBy, showToast]);
-
+    };    fetchFurniture();
+  }, [searchTerm, selectedCategory, priceRange, show3DOnly, showAROnly, sortBy]);
   const handleAddToCart = async (furnitureItem) => {
     try {
       setAddingToCart(furnitureItem.id);
       await addToCart(furnitureItem, 1);
-      showToast('Added to cart!', 'success');
+      showToast({ type: 'success', message: 'Added to cart!' });
     } catch (error) {
-      showToast('Failed to add to cart', 'error');
+      showToast({ type: 'error', message: 'Failed to add to cart' });
     } finally {
       setAddingToCart(null);
     }
   };
 
   const handleToggleFavorite = async (furnitureItem) => {
+    // Prevent multiple rapid clicks
+    if (togglingFavorite === furnitureItem.id) return;
+    
     try {
-      const isFavorite = favorites.some(fav => fav.furniture.id === furnitureItem.id);
+      setTogglingFavorite(furnitureItem.id);
+      
+      // Check current favorite status more reliably
+      const isFavorite = favorites.some(fav => 
+        (fav.furniture?.id === furnitureItem.id) || (fav.furniture_id === furnitureItem.id)
+      );
+      
       if (isFavorite) {
         await removeFromFavorites(furnitureItem.id);
-        showToast('Removed from favorites', 'info');
+        showToast({ type: 'info', message: 'Removed from favorites' });
       } else {
         await addToFavorites(furnitureItem);
-        showToast('Added to favorites!', 'success');
+        showToast({ type: 'success', message: 'Added to favorites!' });
       }
     } catch (error) {
-      showToast('Failed to update favorites', 'error');
+      console.error('Error toggling favorite:', error);
+      showToast({ type: 'error', message: 'Failed to update favorites' });
+    } finally {
+      setTogglingFavorite(null);
     }
   };
 
@@ -299,9 +309,11 @@ const Browse = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {furniture.map((item) => {
-              const isFavorite = favorites.some(fav => fav.furniture.id === item.id);
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">            {furniture.map((item) => {
+              // More robust favorite checking to match ProductDetail component
+              const isFavorite = favorites.some(fav => 
+                (fav.furniture?.id === item.id) || (fav.furniture_id === item.id)
+              );
               const primaryImage = item.media_assets?.find(media => media.is_primary && media.type === 'image')?.url || 
                                    item.media_assets?.find(media => media.type === 'image')?.url ||
                                    'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400';
@@ -335,14 +347,15 @@ const Browse = () => {
                           AR
                         </span>
                       )}
-                    </div>
-
-                    {/* Favorite Button */}
+                    </div>                    {/* Favorite Button */}
                     <button
                       onClick={() => handleToggleFavorite(item)}
-                      className="absolute top-2 right-2 p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors"
+                      disabled={togglingFavorite === item.id}
+                      className="absolute top-2 right-2 p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isFavorite ? (
+                      {togglingFavorite === item.id ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      ) : isFavorite ? (
                         <HeartSolidIcon className="h-5 w-5 text-red-500" />
                       ) : (
                         <HeartOutlineIcon className="h-5 w-5 text-white" />

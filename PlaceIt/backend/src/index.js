@@ -134,9 +134,10 @@ app.get('/', (req, res) => {
         'GET /api/vendor/analytics - Get user analytics (authenticated)',
         'GET /api/vendor/recommendations - Get recommendations for vendor (authenticated)',
         'GET /api/vendor/reconstruction-jobs - Get reconstruction jobs (authenticated)'
-      ],
-      uploads: [
-        'POST /api/uploads/media - Upload media files (authenticated)'
+      ],      uploads: [
+        'POST /api/uploads/media - Upload media files (authenticated)',
+        'DELETE /api/uploads/media/:id - Delete media asset (owner only)',
+        'PATCH /api/uploads/media/:id - Update media asset (owner only)'
       ],
       photogrammetry: [
         'POST /api/photogrammetry/reconstruct - Process 3D reconstruction (authenticated)'
@@ -553,8 +554,10 @@ app.get('/api/furniture', async (req, res) => {
 app.get('/api/furniture/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const token = req.headers.authorization?.replace('Bearer ', '');
     
-    const { data: furniture, error } = await supabase
+    // If there's a token, we'll allow access to non-active items for vendors
+    let query = supabase
       .from('furniture')
       .select(`
         *,
@@ -563,9 +566,14 @@ app.get('/api/furniture/:id', async (req, res) => {
         media_assets(*),
         reviews(*, users(name, profile_image))
       `)
-      .eq('id', id)
-      .eq('status', 'active')
-      .single();
+      .eq('id', id);
+    
+    // If no token, only show active items (public access)
+    if (!token) {
+      query = query.eq('status', 'active');
+    }
+    
+    const { data: furniture, error } = await query.single();
       
     if (error) {
       return res.status(404).json({ success: false, message: 'Furniture not found' });
@@ -700,6 +708,18 @@ app.put('/api/furniture/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
     
+    // Debug logging
+    console.log('PUT /api/furniture/:id - Received data:', JSON.stringify(updates, null, 2));
+    console.log('Product ID:', id);
+    console.log('User from token:', req.user);
+    
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    
+    console.log('User ID:', req.user.id);
+    
     // Verify ownership
     const { data: existingFurniture, error: checkError } = await supabase
       .from('furniture')
@@ -714,8 +734,7 @@ app.put('/api/furniture/:id', requireAuth, async (req, res) => {
     if (existingFurniture.vendor_id !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Permission denied' });
     }
-    
-    const { data: furniture, error } = await supabase
+      const { data: furniture, error } = await supabase
       .from('furniture')
       .update({
         ...updates,
@@ -726,6 +745,8 @@ app.put('/api/furniture/:id', requireAuth, async (req, res) => {
       .single();
       
     if (error) {
+      console.error('Supabase update error:', error);
+      console.error('Update data sent to Supabase:', { ...updates, updated_at: new Date().toISOString() });
       return res.status(400).json({ success: false, message: error.message });
     }
     
@@ -1987,6 +2008,122 @@ app.post('/api/uploads/media', requireAuth, upload.single('file'), async (req, r
     });
   } catch (error) {
     console.error('Upload error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Delete media asset (owner only)
+app.delete('/api/uploads/media/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    
+    // Get media asset and verify ownership
+    const { data: mediaAsset, error: fetchError } = await supabase
+      .from('media_assets')
+      .select('*, furniture!inner(vendor_id)')
+      .eq('id', id)
+      .single();
+      
+    if (fetchError || !mediaAsset) {
+      return res.status(404).json({ success: false, message: 'Media asset not found' });
+    }
+    
+    if (mediaAsset.furniture.vendor_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Permission denied' });
+    }
+    
+    // Delete from storage
+    const filePath = extractStoragePath(mediaAsset.url, 'furniture-media');
+    if (filePath) {
+      await supabase.storage
+        .from('furniture-media')
+        .remove([filePath]);
+    }
+    
+    // Delete from database
+    const { error: deleteError } = await supabase
+      .from('media_assets')
+      .delete()
+      .eq('id', id);
+      
+    if (deleteError) {
+      return res.status(400).json({ success: false, message: deleteError.message });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Media asset deleted successfully'
+    });
+  } catch (error) {
+    console.error('Media delete error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Update media asset (set primary, update metadata)
+app.patch('/api/uploads/media/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { is_primary, alt_text, caption } = req.body;
+    
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    
+    // Get media asset and verify ownership
+    const { data: mediaAsset, error: fetchError } = await supabase
+      .from('media_assets')
+      .select('*, furniture!inner(vendor_id)')
+      .eq('id', id)
+      .single();
+      
+    if (fetchError || !mediaAsset) {
+      return res.status(404).json({ success: false, message: 'Media asset not found' });
+    }
+    
+    if (mediaAsset.furniture.vendor_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Permission denied' });
+    }
+    
+    // If setting as primary, unset other primary images for this furniture
+    if (is_primary === true) {
+      await supabase
+        .from('media_assets')
+        .update({ is_primary: false })
+        .eq('furniture_id', mediaAsset.furniture_id)
+        .eq('type', 'image');
+    }
+    
+    // Update the media asset
+    const updateData = {};
+    if (is_primary !== undefined) updateData.is_primary = is_primary;
+    if (alt_text !== undefined) updateData.alt_text = alt_text;
+    if (caption !== undefined) updateData.caption = caption;
+    
+    const { data: updatedAsset, error: updateError } = await supabase
+      .from('media_assets')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (updateError) {
+      return res.status(400).json({ success: false, message: updateError.message });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Media asset updated successfully',
+      data: updatedAsset
+    });
+  } catch (error) {
+    console.error('Media update error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
