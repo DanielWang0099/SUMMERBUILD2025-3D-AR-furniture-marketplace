@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import apiService from '../services/api';
 import ThreeDViewer from '../components/3D/ThreeDViewer';
+import ThreeDViewerErrorBoundary from '../components/3D/ThreeDViewerErrorBoundary';
 import ARViewer from '../components/AR/ARViewer';
 import { 
   CubeIcon,
@@ -151,7 +152,9 @@ const ProductDetail = () => {
   const isFavorite = favorites.some(fav => 
     (fav.furniture?.id === product?.id) || (fav.furniture_id === product?.id)
   );
-  const images = product?.media_assets?.filter(asset => asset.type === 'image') || [];
+const images = product?.media_assets?.filter(asset => asset.type === 'image') || [];
+const modelAsset = product?.media_assets?.find(asset => asset.mime_type === 'model/gltf-binary');
+const modelUrl = modelAsset?.url || product?.media_assets?.find(asset => asset.type === 'model_3d')?.url || null;
   const primaryImage = images.find(img => img.is_primary) || images[0];
   const averageRating = product?.average_rating || 0;
   const reviewCount = product?.review_count || 0;
@@ -322,6 +325,21 @@ const ProductDetail = () => {
     }
   }, [reviews, reviewSortBy]);
 
+  // Cleanup effect to close 3D/AR viewers when navigating away
+  useEffect(() => {
+    return () => {
+      // Close any active viewers when component unmounts
+      setShow3D(false);
+      setIsARActive(false);
+    };
+  }, []);
+
+  // Also close viewers when ID changes (navigating to different product)
+  useEffect(() => {
+    setShow3D(false);
+    setIsARActive(false);
+  }, [id]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa] flex items-center justify-center">
@@ -361,25 +379,31 @@ const ProductDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Product Images and Media */}
           <div className="space-y-4">
-            {/* Main Image */}
+            {/* Main Image */}            
             <motion.div
+              key={show3D ? '3d-viewer' : isARActive ? 'ar-viewer' : 'image-viewer'} // Add key to force remount
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6 }}
               className="aspect-square bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl overflow-hidden shadow-lg relative"
-            >
-              {show3D ? (
-                <ThreeDViewer 
-                  modelUrl={product.model_3d_url} 
-                  onClose={() => setShow3D(false)}
-                />
-              ) : isARActive ? (
+            >              {show3D && modelUrl ? (
+                <ThreeDViewerErrorBoundary onClose={() => setShow3D(false)}>
+                  <ThreeDViewer 
+                    key="threeDViewer" // Ensure consistent key
+                    modelUrl={modelUrl} 
+                    onClose={() => setShow3D(false)}
+                  />
+                </ThreeDViewerErrorBoundary>) : isARActive && modelUrl ? (
                 <ARViewer 
-                  modelUrl={product.model_3d_url}
+                  key="arViewer" // Ensure consistent key
+                  isActive={isARActive}
+                  productName={product.title}
+                  modelUrl={modelUrl}
                   onClose={() => setIsARActive(false)}
                 />
               ) : (
                 <img
+                  key="imageViewer" // Ensure consistent key
                   src={images[selectedImage]?.url || primaryImage?.url || 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600'}
                   alt={product.title}
                   className="w-full h-full object-cover"
@@ -387,19 +411,23 @@ const ProductDetail = () => {
               )}
 
               {/* Badges */}
-              <div className="absolute top-4 left-4 flex gap-2">
-                {product.has_3d_model && (
+              <div className="absolute top-4 left-4 flex gap-2">                {product.has_3d_model && modelUrl && (
                   <button
-                    onClick={() => setShow3D(!show3D)}
+                    onClick={() => {
+                      setShow3D(!show3D);
+                      if (!show3D) setIsARActive(false); // Close AR when opening 3D
+                    }}
                     className="bg-[#29d4c5] text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1 hover:bg-[#209aaa] transition-colors"
                   >
                     <CubeIcon className="h-4 w-4" />
                     {show3D ? 'Exit 3D' : 'View 3D'}
                   </button>
-                )}
-                {product.has_ar_support && (
+                )}{product.has_ar_support && modelUrl && (
                   <button
-                    onClick={() => setIsARActive(!isARActive)}
+                    onClick={() => {
+                      setIsARActive(!isARActive);
+                      if (!isARActive) setShow3D(false); // Close 3D when opening AR
+                    }}
                     className="bg-[#209aaa] text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1 hover:bg-[#29d4c5] transition-colors"
                   >
                     <EyeIcon className="h-4 w-4" />
