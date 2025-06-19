@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import UploadItemForm from './UploadItemForm';
 import LoadingSpinner from '../components/UI/LoadingSpinner';
 import apiService from '../services/api';
 import { 
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 
 const VendorProductForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { productId } = useParams();
   const { user, showToast } = useApp();
   const [isLoading, setIsLoading] = useState(false);
@@ -219,13 +221,17 @@ const VendorProductForm = () => {
       } else {
         result = await apiService.createFurniture(productData);      }
       
-      const furnitureId = result.data.id;
-
-      showToast({
+      const furnitureId = result.data.id;      showToast({
         type: 'success',
         message: productId ? 'Product updated successfully!' : 'Product created successfully!'
       });
-      navigate('/vendor-dashboard');
+      
+      // Navigate back to sell page with listings tab
+      navigate('/sell', {
+        state: {
+          activeTab: 'listings'
+        }
+      });
 
     } catch (error) {
       console.error('Error saving product:', error);
@@ -264,10 +270,32 @@ const VendorProductForm = () => {
       </div>
     );
   }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#b6cacb] via-[#29d4c5] to-[#209aaa] py-12">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">        <UploadItemForm
+    <div className="min-h-screen bg-gradient-to-br from-[#b6cacb]/10 to-white">
+      {/* Header */}
+      <section className="bg-gradient-to-r from-[#0c1825] via-[#2a5d93] to-[#209aaa] py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between">
+            <div className="text-left">
+              <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
+                {productId ? 'Edit Product' : 'Add New Product'}
+              </h1>
+              <p className="text-xl text-[#b6cacb]">
+                {productId ? 'Update your furniture listing' : 'Create a new furniture listing'}
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/sell', { state: { activeTab: 'listings' } })}
+              className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/20"
+            >
+              <ArrowLeftIcon className="h-5 w-5" />
+              <span>Back to Dashboard</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">        <UploadItemForm
           formData={formData}
           setFormData={setFormData}
           uploadFiles={uploadFiles}
@@ -281,6 +309,8 @@ const VendorProductForm = () => {
           existingImages={images}
           onRemoveExistingImage={handleRemoveExistingImage}
           onSetPrimaryImage={handleSetPrimaryImage}
+          disableMediaEditing={!!productId}
+          isDashboardMode={true}
         />
       </div>
     </div>

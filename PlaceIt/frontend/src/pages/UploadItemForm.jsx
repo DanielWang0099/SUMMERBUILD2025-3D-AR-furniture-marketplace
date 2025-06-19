@@ -16,7 +16,9 @@ const UploadItemForm = React.memo(({
   isEditMode = false,
   existingImages = [],
   onRemoveExistingImage,
-  onSetPrimaryImage
+  onSetPrimaryImage,
+  disableMediaEditing = false,
+  isDashboardMode = false
 }) => {
   // Handle publish listing - sets status to active before submitting
   const handlePublishListing = useCallback((e) => {
@@ -28,15 +30,21 @@ const UploadItemForm = React.memo(({
   const handleSaveAsDraft = useCallback((e) => {
     e.preventDefault();
     submitListing(e, 'draft');
-  }, [submitListing]);
-  return (
+  }, [submitListing]);  return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-8 shadow-lg"    >
-      <h3 className="text-2xl font-bold text-[#0c1825] mb-6">
-        {isEditMode ? 'Edit Furniture Item' : 'Add New Furniture Item'}
-      </h3>
+      className={`${
+        isDashboardMode 
+          ? 'bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-8 shadow-lg' 
+          : 'bg-white/60 backdrop-blur-sm border border-[#29d4c5]/20 rounded-xl p-8 shadow-lg'
+      }`}
+    >
+      {!isDashboardMode && (
+        <h3 className="text-2xl font-bold text-[#0c1825] mb-6">
+          {isEditMode ? 'Edit Furniture Item' : 'Add New Furniture Item'}
+        </h3>
+      )}
 
       <form className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -354,92 +362,106 @@ const UploadItemForm = React.memo(({
                       </div>
                     )}
                     
-                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                      {!image.is_primary && onSetPrimaryImage && (
-                        <button
-                          type="button"
-                          onClick={() => onSetPrimaryImage(image.id || index)}
-                          className="p-1 bg-[#29d4c5] text-white rounded text-xs hover:bg-[#209aaa]"
-                          title="Set as primary"
-                        >
-                          ★
-                        </button>
-                      )}
-                      {onRemoveExistingImage && (
-                        <button
-                          type="button"
-                          onClick={() => onRemoveExistingImage(image.id || index)}
-                          className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
-                          title="Remove image"
-                        >
-                          <TrashIcon className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
+                    {!disableMediaEditing && (
+                      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        {!image.is_primary && onSetPrimaryImage && (
+                          <button
+                            type="button"
+                            onClick={() => onSetPrimaryImage(image.id || index)}
+                            className="p-1 bg-[#29d4c5] text-white rounded text-xs hover:bg-[#209aaa]"
+                            title="Set as primary"
+                          >
+                            ★
+                          </button>
+                        )}
+                        {onRemoveExistingImage && (
+                          <button
+                            type="button"
+                            onClick={() => onRemoveExistingImage(image.id || index)}
+                            className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
+                            title="Remove image"
+                          >
+                            <TrashIcon className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
           
-          <div className="border-2 border-dashed border-[#29d4c5]/30 rounded-lg p-8 text-center bg-white/40">
-            <CloudArrowUpIcon className="h-12 w-12 text-[#29d4c5] mx-auto mb-4" />
-            <p className="text-[#2a5d93] mb-2">
-              {isEditMode ? 'Add more images or drag and drop' : 'Click to upload or drag and drop'}
-            </p>
-            <p className="text-sm text-[#2a5d93]/60">PNG, JPG up to 10MB each</p>
-            <div className="mt-4 flex justify-center">
-              <label className="cursor-pointer bg-[#29d4c5] text-white px-4 py-2 rounded-md shadow-sm hover:bg-[#22bfb3] transition">
-                Upload Files
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => handleFileUpload('images', e.target.files)}
-                  className="hidden"
-                />
-              </label>
+          {!disableMediaEditing && (
+            <div className="border-2 border-dashed border-[#29d4c5]/30 rounded-lg p-8 text-center bg-white/40">
+              <CloudArrowUpIcon className="h-12 w-12 text-[#29d4c5] mx-auto mb-4" />
+              <p className="text-[#2a5d93] mb-2">
+                {isEditMode ? 'Add more images or drag and drop' : 'Click to upload or drag and drop'}
+              </p>
+              <p className="text-sm text-[#2a5d93]/60">PNG, JPG up to 10MB each</p>
+              <div className="mt-4 flex justify-center">
+                <label className="cursor-pointer bg-[#29d4c5] text-white px-4 py-2 rounded-md shadow-sm hover:bg-[#22bfb3] transition">
+                  Upload Files
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => handleFileUpload('images', e.target.files)}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {uploadFiles.images && uploadFiles.images.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm text-[#0c1825]">{uploadFiles.images.length} new image(s) selected</p>
+                </div>
+              )}
             </div>
-            {uploadFiles.images && uploadFiles.images.length > 0 && (
-              <div className="mt-4">
-                <p className="text-sm text-[#0c1825]">{uploadFiles.images.length} new image(s) selected</p>
-              </div>
-            )}
+          )}
+          
+          {disableMediaEditing && isEditMode && (
+            <div className="border-2 border-dashed border-gray-300/50 rounded-lg p-8 text-center bg-gray-100/40">
+              <CloudArrowUpIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 mb-2">Image editing is disabled in edit mode</p>
+              <p className="text-sm text-gray-500">You can only view existing images when editing this product</p>
+            </div>
+          )}
+        </div>        {!disableMediaEditing && (
+          <div>
+            <label className="block text-sm font-medium text-[#0c1825] mb-2">
+              Upload Video for 3D Model Generation (Optional)
+            </label>
+            <div className="border-2 border-dashed border-[#209aaa]/30 rounded-lg p-8 text-center bg-white/40">
+              <CubeIcon className="h-12 w-12 text-[#209aaa] mx-auto mb-4" />            <p className="text-[#2a5d93] mb-2">Upload a 360° video of your furniture</p>
+              <p className="text-sm text-[#2a5d93]/60">
+                MP4, MOV up to 100MB. Rotate around your furniture slowly for best results.
+              </p>
+              <div className="mt-4 flex justify-center">
+                <label className="cursor-pointer bg-[#2a5d93] text-white px-4 py-2 rounded-md shadow-sm hover:bg-[#244d7d] transition">
+                  Upload Video
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => handleFileUpload('video', e.target.files)}
+                    className="hidden"
+                  />
+                </label>
+              </div>            {uploadFiles.video && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm text-[#0c1825] font-medium">
+                    ✓ Video selected: {uploadFiles.video.name}
+                  </p>
+                  <p className="text-xs text-[#2a5d93]/70">
+                    File size: {(uploadFiles.video.size / (1024 * 1024)).toFixed(2)} MB
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div>
-          <label className="block text-sm font-medium text-[#0c1825] mb-2">
-            Upload Video for 3D Model Generation (Optional)
-          </label>
-          <div className="border-2 border-dashed border-[#209aaa]/30 rounded-lg p-8 text-center bg-white/40">
-            <CubeIcon className="h-12 w-12 text-[#209aaa] mx-auto mb-4" />            <p className="text-[#2a5d93] mb-2">Upload a 360° video of your furniture</p>
-            <p className="text-sm text-[#2a5d93]/60">
-              MP4, MOV up to 100MB. Rotate around your furniture slowly for best results.
-            </p>
-            <div className="mt-4 flex justify-center">
-              <label className="cursor-pointer bg-[#2a5d93] text-white px-4 py-2 rounded-md shadow-sm hover:bg-[#244d7d] transition">
-                Upload Video
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => handleFileUpload('video', e.target.files)}
-                  className="hidden"
-                />
-              </label>
-            </div>            {uploadFiles.video && (
-              <div className="mt-4 space-y-2">
-                <p className="text-sm text-[#0c1825] font-medium">
-                  ✓ Video selected: {uploadFiles.video.name}
-                </p>
-                <p className="text-xs text-[#2a5d93]/70">
-                  File size: {(uploadFiles.video.size / (1024 * 1024)).toFixed(2)} MB
-                </p>
-              </div>
-            )}
-          </div>
-        </div>        {/* 3D Model Generation Checkbox */}
-        {uploadFiles.video && (
+        {/* 3D Model Generation Checkbox */}
+        {!disableMediaEditing && uploadFiles.video && (
           <div className="bg-gradient-to-r from-[#29d4c5]/10 to-[#209aaa]/10 border border-[#29d4c5]/30 rounded-lg p-6">
             <div className="flex items-start space-x-3">
               <div className="flex items-center h-5">
@@ -471,7 +493,7 @@ const UploadItemForm = React.memo(({
               </div>
             </div>
           </div>
-        )}        <div className="flex space-x-4">          <button
+        )}<div className="flex space-x-4">          <button
             type="button"
             onClick={handlePublishListing}
             disabled={loading}

@@ -1710,7 +1710,6 @@ app.get('/api/vendor/dashboard', requireAuth, async (req, res) => {
 app.get('/api/vendor/furniture', requireAuth, async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
-    
     let query = supabase
       .from('furniture')
       .select(`
@@ -1720,11 +1719,9 @@ app.get('/api/vendor/furniture', requireAuth, async (req, res) => {
         reviews(rating)
       `)
       .eq('vendor_id', req.user.id);
-    
     if (status) {
       query = query.eq('status', status);
     }
-    
     const offset = (parseInt(page) - 1) * parseInt(limit);
     query = query.order('created_at', { ascending: false })
                  .range(offset, offset + parseInt(limit) - 1);
@@ -1735,9 +1732,28 @@ app.get('/api/vendor/furniture', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, message: error.message });
     }
     
+    // Fetch favorites count for all furniture in one query
+    const furnitureIds = furniture.map(f => f.id);
+    let favoritesCountMap = {};
+    if (furnitureIds.length > 0) {
+      const { data: favCounts, error: favErr } = await supabase
+        .from('favorites')
+        .select('furniture_id, count:furniture_id', { count: 'exact', head: false })
+        .in('furniture_id', furnitureIds);
+      if (!favErr && favCounts) {
+        favCounts.forEach(row => {
+          favoritesCountMap[row.furniture_id] = (favoritesCountMap[row.furniture_id] || 0) + 1;
+        });
+      }
+    }
+    // Attach favorites_count to each furniture item
+    const furnitureWithFavs = furniture.map(f => ({
+      ...f,
+      favorites_count: favoritesCountMap[f.id] || 0
+    }));
     res.json({
       success: true,
-      data: furniture,
+      data: furnitureWithFavs,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
