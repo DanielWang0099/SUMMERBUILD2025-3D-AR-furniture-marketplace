@@ -349,7 +349,6 @@ const Sell = () => {
       setLoading(false);
     }
   };
-
   const handleViewFurniture = (furnitureId) => {
     navigate(`/product/${furnitureId}`, { 
       state: { 
@@ -357,6 +356,15 @@ const Sell = () => {
         returnToTab: 'listings',
         returnToName: 'My Listings'
       } 
+    });
+  };
+
+  const handleEditFurniture = (furnitureId) => {
+    navigate(`/vendor/product/edit/${furnitureId}`, {
+      state: {
+        returnTo: '/sell',
+        returnToTab: 'listings'
+      }
     });
   };
 
@@ -749,7 +757,10 @@ const Sell = () => {
                           <EyeIcon className="h-4 w-4" />
                           <span>View</span>
                         </button>
-                        <button className="flex-1 bg-white/80 border border-[#29d4c5]/30 text-[#0c1825] py-2 px-3 rounded-lg hover:bg-[#29d4c5]/20 transition-colors flex items-center justify-center space-x-1">
+                        <button 
+                          onClick={() => handleEditFurniture(listing.id)}
+                          className="flex-1 bg-white/80 border border-[#29d4c5]/30 text-[#0c1825] py-2 px-3 rounded-lg hover:bg-[#29d4c5]/20 transition-colors flex items-center justify-center space-x-1"
+                        >
                           <PencilIcon className="h-4 w-4" />
                           <span>Edit</span>
                         </button>
