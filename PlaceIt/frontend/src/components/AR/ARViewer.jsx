@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { CameraIcon, XMarkIcon, ArrowPathIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon, CubeIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { detectARCapabilities } from '../../utils/arCapabilities';
 
 // Helper to dispose of Three.js objects
 const disposeObject = (obj) => {
@@ -28,14 +29,16 @@ const disposeObject = (obj) => {
     }
 };
 
-// Device detection utilities
-const detectDevice = () => {
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isIOS = /iphone|ipad|ipod/.test(userAgent);
-    const isAndroid = /android/.test(userAgent);
-    const isMobile = isIOS || isAndroid || /mobile/.test(userAgent);
-    
-    return { isIOS, isAndroid, isMobile };
+// Enhanced device detection using shared utility
+const getDeviceInfo = () => {
+    const capabilities = detectARCapabilities();
+    return {
+        isIOS: capabilities.isIOS,
+        isAndroid: capabilities.isAndroid,
+        isMobile: capabilities.isMobile,
+        browser: capabilities.browser,
+        hasWebXR: capabilities.hasWebXR
+    };
 };
 
 
@@ -102,9 +105,8 @@ const ARViewer = ({ isActive, onClose, productName, modelUrl }) => {
     // --- MODIFICATION: Refs for in-scene UI ---
     const uiSceneGroupRef = useRef(null);
     const raycasterRef = useRef(new THREE.Raycaster());
-
   // Device info
-  const deviceInfo = detectDevice();
+  const deviceInfo = getDeviceInfo();
 
   // Enhanced logging
   const log = useCallback((message, data = null) => {
