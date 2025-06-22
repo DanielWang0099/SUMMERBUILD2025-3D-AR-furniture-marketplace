@@ -11,6 +11,7 @@ import About from './pages/About';
 import Favorites from './pages/Favorites';
 import Profile from './pages/Profile';
 import VendorProductForm from './pages/VendorProductForm';
+import ARTestPage from './pages/ARTestPage'; // Temporary for testing
 import Toast from './components/UI/Toast';
 import { useApp } from './context/AppContext';
 import './App.css';
@@ -33,6 +34,7 @@ function AppContent() {
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/about" element={<About />} />
           <Route path="/vendor/product/edit/:productId" element={<VendorProductForm />} />
+          <Route path="/ar-test" element={<ARTestPage />} /> {/* Temporary AR test route */}
           {/* Add more routes as needed */}
           <Route path="*" element={<div className="min-h-screen bg-white flex items-center justify-center"><h1 className="text-2xl">Page Not Found</h1></div>} />
         </Routes>

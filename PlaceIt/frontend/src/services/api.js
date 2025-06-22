@@ -21,14 +21,24 @@ class ApiService {
   // Get authorization headers
   getAuthHeaders(isJson = false) {
     const headers = {};
+
+    const isNgrok = import.meta.env.VITE_API_URL?.includes('.ngrok-');
+    if (isNgrok) {
+      headers['ngrok-skip-browser-warning'] = 'true';
+    }
+
     if (isJson) {
       headers['Content-Type'] = 'application/json';
     }
+
     if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`;
+      headers['Authorization'] = `Bearer ${this.token}`;
     }
+
     return headers;
   }
+
+  
   // Generic API request method
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;

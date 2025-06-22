@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import apiService from '../services/api';
 import ThreeDViewer from '../components/3D/ThreeDViewer';
 import ThreeDViewerErrorBoundary from '../components/3D/ThreeDViewerErrorBoundary';
-import ARViewer from '../components/AR/ARViewer';
+import ARStrategyRouter from '../components/AR/ARStrategyRouter';
 import { 
   CubeIcon,
   EyeIcon,
@@ -340,6 +340,23 @@ const modelUrl = modelAsset?.url || product?.media_assets?.find(asset => asset.t
     setIsARActive(false);
   }, [id]);
 
+  // Listen for AR fallback to 3D viewer
+  useEffect(() => {
+    const handleOpenThreeDViewer = (event) => {
+      const { modelUrl: eventModelUrl, productName } = event.detail;
+      if (eventModelUrl && product) {
+        setIsARActive(false);
+        setShow3D(true);
+      }
+    };
+
+    window.addEventListener('openThreeDViewer', handleOpenThreeDViewer);
+    
+    return () => {
+      window.removeEventListener('openThreeDViewer', handleOpenThreeDViewer);
+    };
+  }, [product]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0c1825] via-[#2a5d93] to-[#209aaa] flex items-center justify-center">
@@ -386,7 +403,7 @@ const modelUrl = modelAsset?.url || product?.media_assets?.find(asset => asset.t
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6 }}
               className="aspect-square bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl overflow-hidden shadow-lg relative"
-            >              {show3D && modelUrl ? (
+            > {show3D && modelUrl ? (                
                 <ThreeDViewerErrorBoundary onClose={() => setShow3D(false)}>
                   <ThreeDViewer 
                     key="threeDViewer" // Ensure consistent key
@@ -394,7 +411,7 @@ const modelUrl = modelAsset?.url || product?.media_assets?.find(asset => asset.t
                     onClose={() => setShow3D(false)}
                   />
                 </ThreeDViewerErrorBoundary>) : isARActive && modelUrl ? (
-                <ARViewer 
+                <ARStrategyRouter 
                   key="arViewer" // Ensure consistent key
                   isActive={isARActive}
                   productName={product.title}
