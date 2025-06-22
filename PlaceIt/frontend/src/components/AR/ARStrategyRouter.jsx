@@ -21,18 +21,19 @@ const ARStrategyRouter = ({ isActive, onClose, productName, modelUrl }) => {
             // Get device and browser capabilities
             const capabilities = detectARCapabilities();
             logARCapabilities(capabilities);
-            setArCapabilities(capabilities);
-
-            // If WebXR is the preferred strategy, verify it's actually working
+            setArCapabilities(capabilities);            // If WebXR is the preferred strategy, verify it's actually working
             if (capabilities.arStrategy === 'webxr') {
+                console.log('[AR Strategy] Verifying WebXR support for Android Chrome...');
                 const webxrCheck = await checkWebXRSupport();
                 setWebxrSupport(webxrCheck);
                 
+                console.log('[AR Strategy] WebXR check result:', webxrCheck);
+                
                 if (!webxrCheck.supported) {
                     // Fallback to inline 3D if WebXR fails
+                    console.warn('[AR Strategy] WebXR not supported, falling back to inline 3D');
                     capabilities.arStrategy = 'inline3d';
                     capabilities.arCapabilities.webxr = false;
-                    console.warn('[AR Strategy] WebXR not supported, falling back to inline 3D');
                 }
             }
 
@@ -89,9 +90,7 @@ const ARStrategyRouter = ({ isActive, onClose, productName, modelUrl }) => {
                         productName={productName}
                         modelUrl={modelUrl}
                     />
-                );
-
-            case 'inline3d':
+                );            case 'inline3d':
                 return renderFallbackMessage(
                     'AR Not Available',
                     'AR is not supported on this device, but you can still view the 3D model.',
@@ -106,9 +105,14 @@ const ARStrategyRouter = ({ isActive, onClose, productName, modelUrl }) => {
 
             case 'none':
             default:
+                const debugMessage = error || 'AR is not supported on this device or browser.';
+                const extendedMessage = arCapabilities ? 
+                    `${debugMessage} (Device: ${arCapabilities.isIOS ? 'iOS' : arCapabilities.isAndroid ? 'Android' : 'Desktop'}, Browser: ${arCapabilities.browser.name}, WebXR: ${arCapabilities.hasWebXR ? 'Available' : 'Not Available'})` : 
+                    debugMessage;
+                
                 return renderFallbackMessage(
                     'AR Not Supported',
-                    error || 'AR is not supported on this device or browser.',
+                    extendedMessage,
                     'Close',
                     onClose
                 );

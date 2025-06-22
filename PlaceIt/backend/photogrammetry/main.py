@@ -392,7 +392,7 @@ def main():
         print(f"Final GLB and MVS output directory: {final_glb_output_dir}")
 
         # Execute Part 1: Frame Extraction
-        extract_frames(video_path, images_dir, fps=1)
+        extract_frames(video_path, images_dir, fps=2)
 
         # Execute Part 2: Structure-from-Motion (SfM) with COLMAP
         run_colmap_sfm(workspace, images_dir, colmap_undistorted_dir)

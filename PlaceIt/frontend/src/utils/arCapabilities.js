@@ -12,12 +12,14 @@ export const detectARCapabilities = () => {
     const isIOS = /iphone|ipad|ipod/.test(userAgent) || platform.includes('iphone') || platform.includes('ipad');
     const isAndroid = /android/.test(userAgent);
     const isMobile = isIOS || isAndroid || /mobile/.test(userAgent);
-    
-    // Browser detection
+      // Browser detection
     const isChrome = /chrome/.test(userAgent) && !/edg/.test(userAgent);
     const isSafari = /safari/.test(userAgent) && !/chrome/.test(userAgent);
     const isFirefox = /firefox/.test(userAgent);
     const isEdge = /edg/.test(userAgent);
+    
+    // More specific Android Chrome detection
+    const isAndroidChrome = isAndroid && isChrome && !/wv/.test(userAgent); // Exclude WebView
     
     // iOS specific browser detection (Chrome on iOS uses Safari engine)
     const isIOSChrome = isIOS && /crios/.test(userAgent);
@@ -45,8 +47,7 @@ export const detectARCapabilities = () => {
         quicklook: false,
         inline3d: hasWebGL
     };
-    
-    if (isAndroid && isChrome && hasWebXR) {
+      if (isAndroidChrome && hasWebXR) {
         arStrategy = 'webxr';
         arCapabilities.webxr = true;
     } else if (hasQuickLook) {
@@ -62,8 +63,7 @@ export const detectARCapabilities = () => {
         isAndroid,
         isMobile,
         isDesktop: !isMobile,
-        
-        // Browser info
+          // Browser info
         browser: {
             isChrome,
             isSafari,
@@ -72,6 +72,7 @@ export const detectARCapabilities = () => {
             isIOSChrome,
             isIOSSafari,
             isIOSWebView,
+            isAndroidChrome,
             name: isChrome ? 'Chrome' : isSafari ? 'Safari' : isFirefox ? 'Firefox' : isEdge ? 'Edge' : 'Unknown'
         },
         
@@ -115,21 +116,38 @@ const getRecommendations = (strategy, isIOS, isAndroid, isChrome, isSafari) => {
 
 // Check if WebXR is actually supported (async)
 export const checkWebXRSupport = async () => {
+    console.log('[AR Capabilities] Starting WebXR support check...');
+    
     if (!('xr' in navigator)) {
+        console.log('[AR Capabilities] navigator.xr not found');
         return { supported: false, reason: 'WebXR not available' };
     }
     
+    if (!navigator.xr) {
+        console.log('[AR Capabilities] navigator.xr is null/undefined');
+        return { supported: false, reason: 'WebXR object not available' };
+    }
+    
     try {
+        console.log('[AR Capabilities] Checking immersive-ar session support...');
         const immersiveARSupported = await navigator.xr.isSessionSupported('immersive-ar');
-        const inlineSupported = await navigator.xr.isSessionSupported('inline');
+        console.log('[AR Capabilities] Immersive AR supported:', immersiveARSupported);
         
-        return {
+        console.log('[AR Capabilities] Checking inline session support...');
+        const inlineSupported = await navigator.xr.isSessionSupported('inline');
+        console.log('[AR Capabilities] Inline supported:', inlineSupported);
+        
+        const result = {
             supported: immersiveARSupported,
             immersiveAR: immersiveARSupported,
             inline: inlineSupported,
             reason: immersiveARSupported ? 'WebXR AR supported' : 'WebXR AR not supported'
         };
+        
+        console.log('[AR Capabilities] WebXR check result:', result);
+        return result;
     } catch (error) {
+        console.error('[AR Capabilities] WebXR check failed:', error);
         return {
             supported: false,
             reason: `WebXR check failed: ${error.message}`

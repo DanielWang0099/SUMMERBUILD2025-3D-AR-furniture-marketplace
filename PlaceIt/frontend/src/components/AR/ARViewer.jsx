@@ -202,14 +202,10 @@ const ARViewer = ({ isActive, onClose, productName, modelUrl }) => {
       return false;
     }
   }, [deviceInfo, log]);
-
   useEffect(() => {
     if (isActive) {
-      checkWebXRSupport().then(supported => {
-        if (supported) {
-          startARSession();
-        }
-      });
+      // Skip WebXR support check since ARStrategyRouter already validated it
+      startARSession();
     } else if (session) {
       endSession();
     }
@@ -277,23 +273,26 @@ const ARViewer = ({ isActive, onClose, productName, modelUrl }) => {
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       rendererRef.current = renderer;
-      containerRef.current.appendChild(renderer.domElement);
-
-      setLoadingStatus('Requesting AR permissions...');
+      containerRef.current.appendChild(renderer.domElement);      setLoadingStatus('Requesting AR permissions...');
 
       // --- MODIFICATION: Check for dom-overlay support and update state ---
-      const isDomOverlaySupported = !deviceInfo.isIOS && ('domOverlay' in navigator.xr);
-
-      // --- Device-specific session configuration ---
+      const isDomOverlaySupported = !deviceInfo.isIOS && 
+        navigator.xr && 
+        ('domOverlay' in navigator.xr);      // --- Device-specific session configuration ---
       let sessionConfig = {
         requiredFeatures: ['hit-test'],
         optionalFeatures: []
       };
 
-      // Add dom-overlay only for supported devices
-      if (!deviceInfo.isIOS) {
-        sessionConfig.optionalFeatures.push('dom-overlay');
-        sessionConfig.domOverlay = { root: containerRef.current };
+      // Add dom-overlay only for supported devices and if navigator.xr exists
+      if (!deviceInfo.isIOS && navigator.xr) {
+        try {
+          sessionConfig.optionalFeatures.push('dom-overlay');
+          sessionConfig.domOverlay = { root: containerRef.current };
+        } catch (e) {
+          log('DOM overlay setup failed', e.message);
+          // Continue without DOM overlay
+        }
       }
 
       // Add additional features for Android
