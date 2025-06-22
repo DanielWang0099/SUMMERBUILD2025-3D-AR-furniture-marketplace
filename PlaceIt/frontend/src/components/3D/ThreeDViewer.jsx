@@ -389,29 +389,42 @@ const ThreeDViewer = ({ modelUrl, className = "", onLoad, onClose }) => {
 
       const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
       cameraRef.current = camera;
-      
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setSize(width, height);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.0;
+        const renderer = new THREE.WebGLRenderer({ 
+        antialias: true, 
+        alpha: true,
+        powerPreference: "high-performance",
+        stencil: false,
+        depth: true
+      });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for mobile performance
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.0;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
       rendererRef.current = renderer;
       
-      container.appendChild(renderer.domElement);
-
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.1;
-      controls.minDistance = 2;
-      controls.maxDistance = 35;
-      controls.maxPolarAngle = Math.PI / 2 - 0.05;
-      controls.minPolarAngle = Math.PI * 0.1;
-      controls.target.set(0, 1, 0);
-      // NEW: Disable auto-rotate by default
-      controls.autoRotate = false;
-      controls.autoRotateSpeed = 3; // Set a slow, graceful rotation speed
+      container.appendChild(renderer.domElement);      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.1;
+      controls.minDistance = 2;
+      controls.maxDistance = 35;
+      controls.maxPolarAngle = Math.PI / 2 - 0.05;
+      controls.minPolarAngle = Math.PI * 0.1;
+      controls.target.set(0, 1, 0);
+      // Mobile touch optimizations
+      controls.enablePan = true;
+      controls.panSpeed = 1.0;
+      controls.rotateSpeed = 1.0;
+      controls.zoomSpeed = 1.2;
+      controls.touches = {
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+      };
+      // NEW: Disable auto-rotate by default
+      controls.autoRotate = false;
+      controls.autoRotateSpeed = 3; // Set a slow, graceful rotation speed
       controlsRef.current = controls;
 
       furnitureGroupRef.current = new THREE.Group();
@@ -711,16 +724,36 @@ const ThreeDViewer = ({ modelUrl, className = "", onLoad, onClose }) => {
       setError('Failed to initialize model loading');
       setLoading(false);
     }
-  }, [modelUrl, onLoad]);
-
-  return (
-    <div
-      ref={containerRef}
-      className={`relative w-full h-full bg-gray-800 ${className}`}
-      style={{ minHeight: '400px', cursor: 'grab' }}
-      onMouseDownCapture={(e) => { if(e.target.tagName === 'CANVAS') e.target.style.cursor = 'grabbing'; }}
-      onMouseUpCapture={(e) => { if(e.target.tagName === 'CANVAS') e.target.style.cursor = 'grab'; }}
-    >
+  }, [modelUrl, onLoad]);  return (
+    <div
+      ref={containerRef}
+      className={`relative w-full h-full bg-gray-800 ${className} touch-none`}
+      style={{ 
+        minHeight: '300px',
+        maxHeight: '100vh',
+        touchAction: 'none',
+        WebkitTouchCallout: 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+        cursor: 'grab'
+      }}
+      onMouseDownCapture={(e) => { 
+        if(e.target.tagName === 'CANVAS') {
+          e.target.style.cursor = 'grabbing';
+        }
+      }}
+      onMouseUpCapture={(e) => { 
+        if(e.target.tagName === 'CANVAS') {
+          e.target.style.cursor = 'grab';
+        }
+      }}
+      onTouchStart={(e) => { 
+        // Prevent default touch behavior that might interfere with 3D controls
+        if (e.target.tagName === 'CANVAS') {
+          e.preventDefault();
+        }
+      }}
+    >
       {error && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-red-900 bg-opacity-50">
           <div className="text-white px-4 py-2 bg-red-700 rounded-lg shadow-lg">
@@ -735,38 +768,39 @@ const ThreeDViewer = ({ modelUrl, className = "", onLoad, onClose }) => {
             Loading Scene...
           </div>
         </div>
-      )}
-      
-      {!error && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
-            <div className="bg-white/80 backdrop-blur-md rounded-full px-4 py-2 shadow-xl flex items-center gap-4">
-              <button 
-                onClick={() => switchRoom('prev')}
-                className="p-2 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50"
-                title="Previous room style"
-                disabled={loading}
-              >
-                <ChevronLeft className="h-5 w-5 text-gray-800" />
-              </button>
-              <div className="text-center w-40">
-                  <div className="text-sm font-bold text-gray-900">
-                    {ROOM_STYLES[currentRoom].name}
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    Style {Object.keys(ROOM_STYLES).indexOf(currentRoom) + 1} of {Object.keys(ROOM_STYLES).length}
-                  </div>
-              </div>
-              <button 
-                onClick={() => switchRoom('next')}
-                className="p-2 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50"
-                title="Next room style"
-                disabled={loading}
-              >
-                <ChevronRight className="h-5 w-5 text-gray-800" />
-              </button>
-            </div>
-          </div>
-      )}
+      )}      {!error && (
+          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-10 w-full max-w-xs px-2 sm:max-w-sm sm:bottom-4 sm:px-4">
+            <div className="bg-white/95 backdrop-blur-md rounded-full px-2 py-2 shadow-xl flex items-center justify-center gap-1 sm:gap-4 sm:px-4 border border-gray-200/20">
+              <button 
+                onClick={() => switchRoom('prev')}
+                className="p-2 hover:bg-gray-200 active:bg-gray-300 rounded-full transition-colors disabled:opacity-50 touch-manipulation flex-shrink-0"
+                title="Previous room style"
+                disabled={loading}
+              >
+                <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5 text-gray-800" />
+              </button>
+              <div className="text-center flex-1 min-w-0 px-1 sm:px-2">
+                  <div className="text-xs sm:text-sm font-bold text-gray-900 truncate leading-tight">
+                    {ROOM_STYLES[currentRoom].name}
+                  </div>
+                  <div className="text-xs text-gray-600 hidden sm:block">
+                    Style {Object.keys(ROOM_STYLES).indexOf(currentRoom) + 1} of {Object.keys(ROOM_STYLES).length}
+                  </div>
+                  <div className="text-xs text-gray-600 sm:hidden leading-tight">
+                    {Object.keys(ROOM_STYLES).indexOf(currentRoom) + 1}/{Object.keys(ROOM_STYLES).length}
+                  </div>
+              </div>
+              <button 
+                onClick={() => switchRoom('next')}
+                className="p-2 hover:bg-gray-200 active:bg-gray-300 rounded-full transition-colors disabled:opacity-50 touch-manipulation flex-shrink-0"
+                title="Next room style"
+                disabled={loading}
+              >
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-gray-800" />
+              </button>
+            </div>
+          </div>
+      )}
     </div>
   );
 };
