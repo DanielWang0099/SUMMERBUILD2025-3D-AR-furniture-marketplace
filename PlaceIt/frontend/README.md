@@ -52,6 +52,88 @@ npm run lint
 ```
 This runs ESLint to check for code quality issues.
 
+## HTTPS Tunneling with ngrok
+
+For testing HTTPS functionality, WebXR features, or sharing your development server externally, you can use ngrok to create secure tunnels.
+
+### Initial Setup
+
+1. **Install ngrok globally:**
+   ```bash
+   npm install -g ngrok
+   ```
+
+2. **Create an ngrok account:**
+   - Go to [ngrok.com](https://ngrok.com) and create a free account
+   - Navigate to your dashboard to get your authtoken
+
+3. **Configure ngrok:**
+   Create an `ngrok.yml` configuration file in your user directory with the following content:
+   ```yaml
+   version: "3"
+   tunnels:
+       frontend:
+           proto: http
+           addr: 3000
+       backend:
+           proto: http
+           addr: 3002
+   agent:
+       authtoken: YOUR_AUTHTOKEN_HERE
+   ```
+
+4. **Set your authtoken:**
+   Replace `YOUR_AUTHTOKEN_HERE` in the configuration file with your actual authtoken from the ngrok dashboard.
+
+### Running with ngrok
+
+1. **Start both frontend and backend servers** (in separate terminals):
+   ```bash
+   # Terminal 1 - Frontend (from frontend directory)
+   npm run dev
+
+   # Terminal 2 - Backend (from backend directory)  
+   npm start
+   ```
+
+2. **Start ngrok tunnels** (in a third terminal):
+   ```bash
+   ngrok start --all
+   ```
+
+3. **Configure your applications:**
+   
+   After starting ngrok, you'll see output with your tunnel URLs. Copy the HTTPS URLs and update:
+
+   **Frontend Configuration (`vite.config.js`):**
+   ```javascript
+   import { defineConfig } from 'vite'
+   import react from '@vitejs/plugin-react'
+
+   // https://vite.dev/config/
+   export default defineConfig({
+     plugins: [react()],
+     server: {
+       port: 3000,
+       host: true,
+       allowedHosts: ['your-frontend-tunnel.ngrok-free.app']
+     }
+   })
+   ```
+
+   **Frontend Environment (`.env`):**
+   ```env
+   VITE_API_URL=https://your-backend-tunnel.ngrok-free.app
+   ```
+
+4. **Restart your frontend server** after making these changes to apply the new configuration.
+
+### Notes
+- Replace `your-frontend-tunnel.ngrok-free.app` and `your-backend-tunnel.ngrok-free.app` with your actual ngrok URLs
+- The ngrok URLs change each time you restart ngrok (unless you have a paid plan with reserved domains)
+- HTTPS tunneling is essential for testing WebXR features, which require secure contexts
+- Free ngrok accounts have rate limits and session timeouts
+
 ## Available Scripts
 - `npm run dev` - Start development server with hot reload
 - `npm run build` - Build for production
