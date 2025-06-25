@@ -23,22 +23,34 @@ const About = () => {
 
   const team = [
     {
-      name: "Soh Jun Jie",
+      name: "Tan Wei Yong",
       role: "CEO & Co-Founder",
       bio: "Former VP of Product at major furniture retailer. Passionate about revolutionizing online furniture shopping.",
       image: "/tan-wei-yong.jpg"
     },
     {
-      name: "Tan Wei Yong",
+      name: "Soh Jun Jie ",
       role: "CTO & Co-Founder", 
       bio: "AR/VR expert with 10+ years in 3D technology. Previously led 3D teams at major tech companies.",
       image: "/soh-jun-jie.jpg"
     },
     {
       name: "David Zhang",
-      role: "Head of Design",
+      role: "Head of Design & Co-Founder",
       bio: "UX designer specializing in immersive experiences. Award-winning designer with focus on accessibility.",
       image: "/david-zhang.jpg"
+    },
+    {
+      name: "Daniel",
+      role: "Head of Engineering & Co-Founder",
+      bio: "Full-stack developer with expertise in 3D graphics and machine learning. Passionate about building scalable solutions.",
+      image: "/daniel.jpg"
+    },
+    {
+      name: "Rong Kun",
+      role: "Head of Operations & Co-Founder",
+      bio: "Business strategist with experience in marketplace operations and customer success. Focused on growth and user experience.",
+      image: "/rong-kun.jpg"
     }
   ];
 
@@ -177,7 +189,7 @@ const About = () => {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8">
             {team.map((member, index) => (
               <motion.div
                 key={member.name}
