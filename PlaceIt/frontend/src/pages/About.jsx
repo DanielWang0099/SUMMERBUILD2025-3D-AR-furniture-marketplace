@@ -23,22 +23,22 @@ const About = () => {
 
   const team = [
     {
-      name: "Sarah Johnson",
+      name: "Soh Jun Jie",
       role: "CEO & Co-Founder",
       bio: "Former VP of Product at major furniture retailer. Passionate about revolutionizing online furniture shopping.",
-      image: "https://images.unsplash.com/photo-1619895862022-09114b41f16f?w=600"
+      image: "/tan-wei-yong.jpg"
     },
     {
-      name: "Michael Chen",
+      name: "Tan Wei Yong",
       role: "CTO & Co-Founder", 
       bio: "AR/VR expert with 10+ years in 3D technology. Previously led 3D teams at major tech companies.",
-      image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300"
+      image: "/soh-jun-jie.jpg"
     },
     {
-      name: "Emily Rodriguez",
+      name: "David Zhang",
       role: "Head of Design",
       bio: "UX designer specializing in immersive experiences. Award-winning designer with focus on accessibility.",
-      image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300"
+      image: "/david-zhang.jpg"
     }
   ];
 
