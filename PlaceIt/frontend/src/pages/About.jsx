@@ -24,32 +24,32 @@ const About = () => {
   const team = [
     {
       name: "Tan Wei Yong",
-      role: "CEO & Co-Founder",
-      bio: "Former VP of Product at major furniture retailer. Passionate about revolutionizing online furniture shopping.",
+      role: "Co-Founder",
+      bio: "First year Computer Engineering student at Nanyang Technological University.",
       image: "/tan-wei-yong.jpg"
     },
     {
       name: "Soh Jun Jie ",
-      role: "CTO & Co-Founder", 
-      bio: "AR/VR expert with 10+ years in 3D technology. Previously led 3D teams at major tech companies.",
+      role: "Co-Founder", 
+      bio: "First year Computer Science student at Nanyang Technological University.",
       image: "/soh-jun-jie.jpg"
     },
     {
       name: "David Zhang",
-      role: "Head of Design & Co-Founder",
-      bio: "UX designer specializing in immersive experiences. Award-winning designer with focus on accessibility.",
+      role: "Co-Founder",
+      bio: "First year Computer Science student at Nanyang Technological University.",
       image: "/david-zhang.jpg"
     },
     {
       name: "Daniel",
-      role: "Head of Engineering & Co-Founder",
-      bio: "Full-stack developer with expertise in 3D graphics and machine learning. Passionate about building scalable solutions.",
+      role: "Co-Founder",
+      bio: "First year Computer Engineering & Data Analytics student at Nanyang Technological University.",
       image: "/daniel.jpg"
     },
     {
       name: "Rong Kun",
-      role: "Head of Operations & Co-Founder",
-      bio: "Business strategist with experience in marketplace operations and customer success. Focused on growth and user experience.",
+      role: "Co-Founder",
+      bio: "First year Applied Computing in Finance student at Nanyang Technological University.",
       image: "/rong-kun.jpg"
     }
   ];
