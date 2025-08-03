@@ -6,6 +6,7 @@ Welcome to the SummerBuild2025 repository! This repository contains the **PlaceI
 
 **PlaceIt!** is a cutting-edge web-based open marketplace platform that revolutionizes furniture shopping by connecting sellers and buyers through immersive 3D and Augmented Reality (AR) experiences.
 
+Watch a quick overview of PlaceIt! here: [PlaceIt! Final Video](http://www.youtube.com/watch?v=l7E_UcaUaAA)
 ### 🎯 What Makes PlaceIt! Special
 
 PlaceIt! transforms the traditional online furniture shopping experience by offering:
